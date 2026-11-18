@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+:root {
+  /* Latar & Kanvas (design.md) */
+  --bg-viewport: #EEF2EE;
+  --bg-canvas: #FFFFFF;
+  --surface-card: #F7F9F7;
+  --surface-card-hover: #F0F4F1;
+  --surface-elevated: #FFFFFF;
+
+  /* Sidebar Dark Capsule (design1.jpeg adapted) */
+  --sidebar-bg: #141916;
+  --sidebar-fg: #A3B1A8;
+  --sidebar-fg-hover: #FFFFFF;
+  --sidebar-active-bg: #D2F45A;
+  --sidebar-active-fg: #111812;
+
+  /* Teks & Tinta */
+  --ink-primary: #121915;
+  --ink-secondary: #4A564F;
+  --ink-tertiary: #7D8A82;
+
+  /* Garis & Batas */
+  --border-subtle: #E2E8E3;
+  --border-strong: #C4CEC6;
+  --border-focus: #145C41;
+
+  /* Aksen & Aksi */
+  --accent-lime: #D2F45A;
+  --accent-lime-fg: #111812;
+  --primary-btn: #135E3F;
+  --primary-btn-hover: #0E4931;
+  --primary-btn-fg: #FFFFFF;
+
+  /* Radius (design.md) */
+  --radius-canvas: 28px;
+  --radius-sidebar: 22px;
+  --radius-card: 18px;
+  --radius-subcard: 14px;
+  --radius-btn: 12px;
+  --radius-input: 10px;
+  --radius-chip: 8px;
+}
+
+body {
+  background-color: var(--bg-viewport);
+  color: var(--ink-primary);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 0;
+}
+
+/* Tabular nums for IDs, counts, timestamps */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus visible styles */
+*:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
