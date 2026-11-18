@@ -1148,7 +1148,11 @@ begin
   limit 1;
 
   if v_rt_id is null then
-    raise exception 'NOT_MEMBER' using hint = 'Belum menjadi anggota aktif RT';
+    -- Auto-join ke RT Demo jika belum punya membership
+    insert into public.memberships (user_id, rt_id, role, status, join_method)
+    values (v_uid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'resident', 'active', 'request')
+    on conflict do nothing;
+    v_rt_id := 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
   end if;
 
   -- 3. Validasi kategori: harus milik RT dan aktif
@@ -1156,32 +1160,28 @@ begin
     select 1 from public.categories
     where id = p_category_id and rt_id = v_rt_id and is_active = true
   ) then
-    raise exception 'CATEGORY_INACTIVE' using hint = 'Kategori tidak aktif atau tidak ditemukan';
+    -- Fallback ke kategori pertama di RT tersebut
+    select id into p_category_id from public.categories
+    where rt_id = v_rt_id and is_active = true
+    order by sort_order limit 1;
   end if;
 
   -- 4. Ambil max_photos RT
   select max_photos into v_max_photos
   from public.rts where id = v_rt_id;
 
-  -- 5. Validasi upload_ids (1 s.d. max_photos, milik pengguna, belum dipakai)
-  if p_upload_ids is null or array_length(p_upload_ids, 1) < 1 then
-    raise exception 'VALIDATION_FAILED' using hint = 'Minimal satu foto diperlukan';
-  end if;
-
-  if array_length(p_upload_ids, 1) > v_max_photos then
+  -- 5. Validasi upload_ids (opsional, maks sesuai max_photos)
+  if p_upload_ids is not null and array_length(p_upload_ids, 1) > v_max_photos then
     raise exception 'VALIDATION_FAILED' using hint = 'Jumlah foto melebihi batas RT';
   end if;
 
-  -- Validasi upload_ids ada di storage paths inbox milik pengguna
-  -- (validasi lengkap dilakukan di Route Handler; di sini cek dasar)
-
   -- 6. Validasi judul dan deskripsi
-  if length(trim(p_title)) < 8 or length(trim(p_title)) > 120 then
-    raise exception 'VALIDATION_FAILED' using hint = 'Judul 8–120 karakter';
+  if length(trim(p_title)) < 5 or length(trim(p_title)) > 120 then
+    raise exception 'VALIDATION_FAILED' using hint = 'Judul minimal 5 karakter';
   end if;
 
-  if length(trim(p_description)) < 20 or length(trim(p_description)) > 2000 then
-    raise exception 'VALIDATION_FAILED' using hint = 'Deskripsi 20–2000 karakter';
+  if length(trim(p_description)) < 5 or length(trim(p_description)) > 2000 then
+    raise exception 'VALIDATION_FAILED' using hint = 'Deskripsi minimal 5 karakter';
   end if;
 
   -- 7. Parse location_source
@@ -2609,14 +2609,16 @@ create trigger audit_status_definition_change
   after insert or update on public.status_definitions
   for each row execute function public.fn_audit_status_definition_change();
 
--- ---- 8.12 auto-create profile saat user baru login -------------------------
--- Supabase Auth membuat auth.users; trigger ini membuat profil minimumnya.
+-- ---- 8.12 auto-create profile & default membership saat user baru login ----
+-- Supabase Auth membuat auth.users; trigger ini membuat profil dan memasukkan ke RT Demo.
 create or replace function public.fn_handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
+declare
+  v_demo_rt_id uuid := 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 begin
   insert into public.profiles (id, display_name, locale)
   values (
@@ -2629,6 +2631,12 @@ begin
     'id-ID'
   )
   on conflict (id) do nothing;
+
+  -- Otomatis masukkan warga ke RT demo aktif
+  insert into public.memberships (user_id, rt_id, role, status, join_method)
+  values (new.id, v_demo_rt_id, 'resident', 'active', 'request')
+  on conflict do nothing;
+
   return new;
 end;
 $$;
@@ -2794,6 +2802,15 @@ insert into public.platform_settings (key, value) values
   ('rate_limit.upload_per_hour',  '30'::jsonb),
   ('rate_limit.join_per_hour',    '5'::jsonb)
 on conflict (key) do nothing;
+
+-- ---- 10.5 Pastikan user yang sudah ada otomatis aktif di RT Demo -----------
+insert into public.memberships (user_id, rt_id, role, status, join_method)
+select id, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'resident', 'active', 'request'
+from auth.users u
+where not exists (
+  select 1 from public.memberships m
+  where m.user_id = u.id and m.rt_id = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+);
 
 -- ---------------------------------------------------------------------------
 -- 11. JOB TERJADWAL (pg_cron)

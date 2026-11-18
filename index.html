@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SULAP — Suka Lapor RT</title>
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="apple-touch-icon" href="assets/logo.png">
+  <!-- Phosphor Icons untuk standar WCAG status & aksi (docs/design.md 7.2) -->
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Supabase JS Client UMD -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- Kanvas Utama Outer (docs/design.md 5.1 Bento Frame) -->
+  <div class="app-container">
+    
+    <!-- Dark Capsule Sidebar (220px fixed) -->
+    <aside class="dark-sidebar">
+      <div>
+        <div class="brand-section">
+          <img src="assets/logo.png" alt="Logo SULAP" class="brand-logo-img">
+          <div class="brand-title">
+            <h1>SULAP</h1>
+            <p>Suka Lapor Warga</p>
+          </div>
+        </div>
+
+        <nav>
+          <ul class="nav-menu">
+            <li>
+              <button class="nav-link active" data-nav="dashboard">
+                <i class="ph ph-squares-four ph-bold" style="font-size: 16px;"></i>
+                <span>Dashboard</span>
+              </button>
+            </li>
+            <li>
+              <button class="nav-link" data-nav="reports">
+                <i class="ph ph-clipboard-text" style="font-size: 16px;"></i>
+                <span>Laporan RT</span>
+              </button>
+            </li>
+            <li>
+              <button class="nav-link" data-nav="notifications">
+                <i class="ph ph-bell" style="font-size: 16px;"></i>
+                <span>Notifikasi</span>
+                <span class="nav-badge-dot"></span>
+              </button>
+            </li>
+            <li>
+              <button class="nav-link" data-nav="settings">
+                <i class="ph ph-gear" style="font-size: 16px;"></i>
+                <span>Pengaturan</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+
+      <!-- Widget Mini PWA & Auth Status (docs/design.md 6.1) -->
+      <div>
+        <div class="sidebar-bottom-widget">
+          <div class="pwa-chip" id="btn-pwa-info">
+            <span>Akses Cepat PWA</span>
+            <div class="pwa-chip-btn">
+              <i class="ph ph-arrow-up-right ph-bold"></i>
+            </div>
+          </div>
+          <p>Pasang di homescreen tanpa download aplikasi toko.</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Viewport Canvas -->
+    <main class="main-content">
+      <!-- Top Header Bar (docs/design.md 6.2) -->
+      <header class="top-header">
+        <div class="greeting-text">
+          <h2 id="greeting-display">Selamat Datang di RT 01 👋</h2>
+          <p>Pantau keterbukaan dan penyelesaian kendala lingkungan sekitar.</p>
+        </div>
+
+        <div class="header-controls">
+          <!-- Search Pill Oval (rounded-full 42px) -->
+          <div class="search-pill-wrapper">
+            <i class="ph ph-magnifying-glass search-icon-pos"></i>
+            <input type="text" id="global-search-input" class="search-pill-input" placeholder="Cari tiket, lokasi, kata kunci...">
+          </div>
+
+          <!-- Action Button Buat Laporan -->
+          <button id="btn-new-report" class="btn-action-primary">
+            <i class="ph ph-plus-circle ph-bold" style="font-size: 16px;"></i>
+            <span>Buat Laporan</span>
+          </button>
+
+          <!-- User Profile / Auth Pill -->
+          <div id="btn-auth-trigger" class="profile-avatar-pill" title="Klik untuk Masuk/Keluar">
+            <div class="avatar-circle" id="user-avatar-initial">W</div>
+            <div class="profile-meta-text">
+              <div class="name" id="user-name-display">Warga Tamu</div>
+              <div class="role" id="user-role-display">Belum Masuk</div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Bento Canvas Body (docs/design.md 5.1 & 6) -->
+      <div class="bento-canvas-body">
+        
+        <!-- Row Metrik 3 Kolom (docs/design.md 6.3) -->
+        <section class="metrics-row">
+          <div class="metric-card">
+            <div class="metric-card-top">
+              <span class="metric-desc">Laporan Baru Masuk</span>
+              <div class="metric-icon-box icon-box-blue">
+                <i class="ph ph-tray ph-bold"></i>
+              </div>
+            </div>
+            <div class="metric-number tabular-nums" id="stat-new-count">0</div>
+            <div class="metric-desc">Menunggu peninjauan pengurus</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-top">
+              <span class="metric-desc">Sedang Dalam Proses</span>
+              <div class="metric-icon-box icon-box-amber">
+                <i class="ph ph-arrows-clockwise ph-bold"></i>
+              </div>
+            </div>
+            <div class="metric-number tabular-nums" id="stat-process-count">0</div>
+            <div class="metric-desc">Inspeksi & penanganan lapangan</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-top">
+              <span class="metric-desc">Tuntas Terselesaikan</span>
+              <div class="metric-icon-box icon-box-green">
+                <i class="ph ph-check-circle ph-bold"></i>
+              </div>
+            </div>
+            <div class="metric-number tabular-nums" id="stat-resolved-count">0</div>
+            <div class="metric-desc">Selesai diperbaiki & diverifikasi</div>
+          </div>
+        </section>
+
+        <!-- Bento Multi-column: 7 Kolom (Kiri) vs 5 Kolom (Kanan) -->
+        <div class="bento-grid-modules">
+          
+          <!-- Sisi Kiri: Feed Tiket Laporan Terkini -->
+          <section class="bento-card-module">
+            <div class="module-header">
+              <h3>Laporan Perlu Perhatian Segera</h3>
+              <button class="action-pill" id="btn-refresh-feed">Muat Ulang</button>
+            </div>
+
+            <!-- List Tiket (docs/design.md 6.6) -->
+            <div id="ticket-feed-container" class="ticket-feed-list">
+              <!-- Render otomatis via js/app.js -->
+            </div>
+          </section>
+
+          <!-- Sisi Kanan: Grafik Tren Mingguan + Agenda Inspeksi -->
+          <div style="display: flex; flex-direction: column; gap: 20px;">
+            
+            <!-- Tren Penanganan Mingguan (docs/design.md 6.4) -->
+            <section class="bento-card-module">
+              <div class="module-header">
+                <h3>Tren Penanganan Mingguan</h3>
+                <span style="font-size: 11px; color: var(--ink-tertiary);">7 Hari Terakhir</span>
+              </div>
+              <div class="chart-bars-wrap">
+                <div class="chart-bar-col">
+                  <div class="bar-pill" style="height: 45%;"></div>
+                  <span class="bar-day-label">Sen</span>
+                </div>
+                <div class="chart-bar-col">
+                  <div class="bar-pill" style="height: 70%;"></div>
+                  <span class="bar-day-label">Sel</span>
+                </div>
+                <div class="chart-bar-col">
+                  <div class="bar-pill" style="height: 30%;"></div>
+                  <span class="bar-day-label">Rab</span>
+                </div>
+                <div class="chart-bar-col">
+                  <div class="bar-pill peak-day" style="height: 90%;" title="Puncak Aktivitas"></div>
+                  <span class="bar-day-label">Kam</span>
+                </div>
+                <div class="chart-bar-col">
+                  <div class="bar-pill" style="height: 60%;"></div>
+                  <span class="bar-day-label">Jum</span>
+                </div>
+                <div class="chart-bar-col">
+                  <div class="bar-pill" style="height: 40%;"></div>
+                  <span class="bar-day-label">Sab</span>
+                </div>
+                <div class="chart-bar-col">
+                  <div class="bar-pill" style="height: 20%;"></div>
+                  <span class="bar-day-label">Min</span>
+                </div>
+              </div>
+              <p style="font-size: 12px; color: var(--ink-secondary); line-height: 1.4;">
+                Rata-rata waktu penyelesaian aduan: <strong>1.8 hari</strong>.
+              </p>
+            </section>
+
+            <!-- Agenda Inspeksi RT (docs/design.md 6.5) -->
+            <section class="bento-card-module">
+              <div class="module-header">
+                <h3>Agenda Inspeksi Lapangan</h3>
+                <span class="status-chip chip-inspect">
+                  <i class="ph ph-clipboard-text"></i> Terjadwal
+                </span>
+              </div>
+              <div class="agenda-list">
+                <div class="agenda-item">
+                  <div class="agenda-left">
+                    <div class="agenda-icon">
+                      <i class="ph ph-drop"></i>
+                    </div>
+                    <div class="agenda-details">
+                      <div class="title">Cek Gorong-Gorong Mampet</div>
+                      <div class="meta">Depan Gang Mawar No. 3 • Pk 09:00 WIB</div>
+                    </div>
+                  </div>
+                  <i class="ph ph-caret-right" style="color: var(--ink-tertiary);"></i>
+                </div>
+
+                <div class="agenda-item">
+                  <div class="agenda-left">
+                    <div class="agenda-icon">
+                      <i class="ph ph-lightbulb"></i>
+                    </div>
+                    <div class="agenda-details">
+                      <div class="title">Perbaikan Lampu Pos Kamling</div>
+                      <div class="meta">Pos Utara RT 01 • Pk 16:30 WIB</div>
+                    </div>
+                  </div>
+                  <i class="ph ph-caret-right" style="color: var(--ink-tertiary);"></i>
+                </div>
+              </div>
+            </section>
+
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Mobile Bottom Navigation Capsule (docs/design.md 5.2) -->
+    <nav class="mobile-bottom-nav">
+      <button class="mobile-nav-btn active">
+        <i class="ph ph-squares-four ph-bold" style="font-size: 18px;"></i>
+        <span>Beranda</span>
+      </button>
+      <button class="mobile-nav-btn">
+        <i class="ph ph-clipboard-text" style="font-size: 18px;"></i>
+        <span>Laporan</span>
+      </button>
+      <button class="mobile-nav-btn">
+        <i class="ph ph-bell" style="font-size: 18px;"></i>
+        <span>Notif</span>
+      </button>
+      <button class="mobile-nav-btn" id="btn-mobile-auth">
+        <i class="ph ph-user" style="font-size: 18px;"></i>
+        <span>Akun</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Modal Auth (Masuk / Daftar Akun Warga) -->
+  <div id="auth-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="auth-modal-title">Masuk Akun Warga</h3>
+        <button class="modal-close" data-close-modal>&times;</button>
+      </div>
+      <form id="auth-form">
+        <div class="form-group" id="name-group" style="display: none;">
+          <label>Nama Lengkap Sesuai KTP / KK</label>
+          <input type="text" id="auth-name" class="form-input" placeholder="Budi Santoso">
+        </div>
+        <div class="form-group">
+          <label>Alamat Email</label>
+          <input type="email" id="auth-email" class="form-input" placeholder="warga@email.com" required>
+        </div>
+        <div class="form-group">
+          <label>Kata Sandi</label>
+          <input type="password" id="auth-password" class="form-input" required minlength="6" placeholder="Minimal 6 karakter">
+        </div>
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="auth-toggle-reg">
+          <label for="auth-toggle-reg" style="margin: 0; font-size: 12px; cursor: pointer;">Daftar akun warga baru</label>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 16px;">
+          <button type="submit" class="btn-action-primary" style="flex: 1; justify-content: center;">
+            Masuk / Simpan
+          </button>
+          <button type="button" id="btn-modal-logout" class="btn-action-secondary hidden" style="color: #9C3412;">
+            Keluar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Buat Laporan Baru -->
+  <div id="report-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Buat Aduan / Laporan Baru</h3>
+        <button class="modal-close" data-close-modal>&times;</button>
+      </div>
+      <form id="report-form">
+        <div class="form-group">
+          <label>Kategori Masalah</label>
+          <select id="report-cat-input" class="form-select" required>
+            <option value="">Memuat kategori...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Judul Masalah (Ringkas & Jelas, Min. 8 Karakter)</label>
+          <input type="text" id="report-title-input" class="form-input" placeholder="Contoh: Lampu penerangan jalan padam di RT 01" required minlength="8" maxlength="120">
+        </div>
+        <div class="form-group">
+          <label>Lokasi / Patokan Terdekat</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="report-addr-input" class="form-input" placeholder="Contoh: Depan rumah Blok B3 No. 12" required>
+            <button type="button" id="btn-get-gps" class="btn-action-secondary" style="white-space: nowrap;">
+              <i class="ph ph-navigation-arrow"></i> GPS
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Detail Kendala</label>
+          <textarea id="report-desc-input" class="form-textarea" rows="4" placeholder="Jelaskan kondisi kerusakan atau kendala secara spesifik..." required minlength="10" maxlength="2000"></textarea>
+        </div>
+        <button type="submit" class="btn-action-primary" style="width: 100%; justify-content: center; margin-top: 8px;">
+          Kirim Laporan ke Pengurus RT
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Entry Script Modular -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "sulap-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Vanilla JS backend server untuk SULAP",
+  "scripts": {
+    "start": "node src/server.js"
+  }
+}

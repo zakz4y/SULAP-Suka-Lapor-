@@ -1,7 +1,7 @@
 {
   "supabase": {
-    "url": "https://your-project-id.supabase.co",
-    "anonKey": "your-supabase-anon-key",
+    "url": "https://pwhnqprkvbvltceuedxo.supabase.co",
+    "anonKey": "sb_publishable_R1xg8YWrnjA0LNI3xWrtSw_wsgiLznt",
     "serviceRoleKey": "your-supabase-service-role-key",
     "jwtSecret": "your-supabase-jwt-secret",
     "region": "ap-southeast-1"
