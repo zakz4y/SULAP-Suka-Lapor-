@@ -7,7 +7,7 @@ const SUPABASE_CONFIG = {
 };
 
 // Client Supabase instance
-export const supabase = window.supabase
+export const supabase = (typeof window !== 'undefined' && window.supabase)
   ? window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey)
   : null;
 
