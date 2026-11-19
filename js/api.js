@@ -4,6 +4,25 @@
  */
 import { supabase } from './config.js';
 
+// Flag agar aplikasi tidak terus memanggil Supabase saat kredensial ditolak (401)
+let supabaseAuthFailed = false;
+
+function sbClient() {
+  return supabaseAuthFailed ? null : supabase;
+}
+
+function noteAuthError(error) {
+  if (!error) return;
+  const status = String(error.status || error.code || '');
+  const msg = String(error.message || error.error_description || '');
+  if (status === '401' || /invalid api key|jwt|unauthorized|invalid claim/i.test(msg)) {
+    if (!supabaseAuthFailed) {
+      supabaseAuthFailed = true;
+      console.warn('[SULAP] Supabase menolak kredensial (401): periksa anonKey di js/config.js. Mode data lokal diaktifkan.');
+    }
+  }
+}
+
 // Fallback seed kategori sesuai supabase/init.sql
 export const DEFAULT_CATEGORIES = [
   { id: '33333333-3333-3333-3333-333333333333', name: 'Saluran Air', slug: 'saluran-air', description: 'Drainase, selokan, dan genangan air' },
@@ -79,10 +98,11 @@ function attachLocalPhotos(reports) {
  */
 export async function fetchFeedReports({ query = '', status = '', categoryId = '', mine = false, limit = 50 } = {}) {
   let reports = [];
+  const client = sbClient();
 
-  if (supabase) {
+  if (client) {
     try {
-      let req = supabase
+      let req = client
         .from('v_reports_feed')
         .select('*')
         .order('created_at', { ascending: false })
@@ -97,18 +117,20 @@ export async function fetchFeedReports({ query = '', status = '', categoryId = '
       }
 
       const { data, error } = await req;
+      noteAuthError(error);
       if (!error && data && data.length > 0) {
         reports = data;
         saveLocalReports(reports);
       } else {
         // Fallback jika view v_reports_feed belum ada data atau RLS
-        const fb = await supabase
+        const fb = await client
           .from('reports')
           .select('id, public_no, title, description, current_status_group, created_at, updated_at, location_text, latitude, longitude, category_id, version')
           .is('deleted_at', null)
           .order('created_at', { ascending: false })
           .limit(limit);
 
+        noteAuthError(fb.error);
         if (!fb.error && fb.data && fb.data.length > 0) {
           reports = fb.data.map(r => ({
             id: r.id,
@@ -165,12 +187,13 @@ export async function fetchReportDetail(reportIdOrPublicNo) {
   let report = null;
   let timeline = [];
   let inspections = [];
+  const client = sbClient();
 
-  if (supabase) {
+  if (client) {
     try {
       // Ambil laporan
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reportIdOrPublicNo);
-      let query = supabase.from('reports').select('*, categories(id, name, slug), status_definitions(id, label, group, color_hex)');
+      let query = client.from('reports').select('*, categories(id, name, slug), status_definitions(id, label, group, color_hex)');
       
       if (isUuid) {
         query = query.eq('id', reportIdOrPublicNo);
@@ -178,26 +201,29 @@ export async function fetchReportDetail(reportIdOrPublicNo) {
         query = query.eq('public_no', reportIdOrPublicNo);
       }
       const { data, error } = await query.maybeSingle();
+      noteAuthError(error);
 
       if (!error && data) {
         report = data;
 
         // Ambil timeline
-        const tlRes = await supabase
+        const tlRes = await client
           .from('v_report_timeline')
           .select('*')
           .eq('report_id', report.id)
           .order('created_at', { ascending: true });
+        noteAuthError(tlRes.error);
         if (!tlRes.error && tlRes.data) {
           timeline = tlRes.data;
         }
 
         // Ambil inspeksi
-        const insRes = await supabase
+        const insRes = await client
           .from('inspections')
           .select('id, findings, inspected_at, created_at, inspector_id, profiles(display_name)')
           .eq('report_id', report.id)
           .order('inspected_at', { ascending: false });
+        noteAuthError(insRes.error);
         if (!insRes.error && insRes.data) {
           inspections = insRes.data.map(item => ({
             id: item.id,
@@ -301,12 +327,13 @@ export async function createReport({ title, description, categoryId, addressText
     return { id: localId, publicNo: newLocal.public_no };
   };
 
-  if (!supabase) {
+  const client = sbClient();
+  if (!client) {
     return saveLocalFallback();
   }
 
   try {
-    const { data, error } = await supabase.rpc('create_report', {
+    const { data, error } = await client.rpc('create_report', {
       p_category_id: finalCatId,
       p_title: title.trim(),
       p_description: description.trim(),
@@ -315,6 +342,7 @@ export async function createReport({ title, description, categoryId, addressText
     });
 
     if (error) {
+      noteAuthError(error);
       console.warn("RPC create_report error, simpan lokal sebagai fallback:", error);
       return saveLocalFallback();
     }
@@ -359,11 +387,12 @@ export async function transitionReportStatus({ reportId, toStatusId, note, resol
   };
 
   // Laporan lokal (offline / RPC gagal sebelumnya) tidak bisa lewat RPC
-  if (!supabase || !isUuid) {
+  const client = sbClient();
+  if (!client || !isUuid) {
     return updateLocal();
   }
 
-  const { data, error } = await supabase.rpc('transition_report_status', {
+  const { data, error } = await client.rpc('transition_report_status', {
     p_report_id: reportId,
     p_to_status_id: toStatusId,
     p_note: note || null,
@@ -373,6 +402,7 @@ export async function transitionReportStatus({ reportId, toStatusId, note, resol
   });
 
   if (error) {
+    noteAuthError(error);
     console.warn("RPC transition_report_status error, memakai fallback lokal:", error);
     return updateLocal();
   }
@@ -395,9 +425,10 @@ export async function transitionReportStatus({ reportId, toStatusId, note, resol
  * 5. POST /reports/{publicNo}/inspections — Buat Inspeksi Baru (create_inspection RPC)
  */
 export async function createInspection({ reportId, findings, inspectedAt = new Date().toISOString() }) {
-  if (!supabase) throw new Error("Klien Supabase belum siap.");
+  const client = sbClient();
+  if (!client) throw new Error("Klien Supabase belum siap.");
 
-  const { data, error } = await supabase.rpc('create_inspection', {
+  const { data, error } = await client.rpc('create_inspection', {
     p_report_id: reportId,
     p_findings: findings.trim(),
     p_inspected_at: inspectedAt,
@@ -405,6 +436,7 @@ export async function createInspection({ reportId, findings, inspectedAt = new D
   });
 
   if (error) {
+    noteAuthError(error);
     console.error("RPC create_inspection error:", error);
     throw error;
   }
@@ -415,15 +447,17 @@ export async function createInspection({ reportId, findings, inspectedAt = new D
  * 6. POST /reports/{publicNo}/reopen — Buka Kembali Laporan (reopen_report RPC)
  */
 export async function reopenReport({ reportId, reason }) {
-  if (!supabase) throw new Error("Klien Supabase belum siap.");
+  const client = sbClient();
+  if (!client) throw new Error("Klien Supabase belum siap.");
 
-  const { data, error } = await supabase.rpc('reopen_report', {
+  const { data, error } = await client.rpc('reopen_report', {
     p_report_id: reportId,
     p_reason: reason.trim(),
     p_upload_ids: []
   });
 
   if (error) {
+    noteAuthError(error);
     console.error("RPC reopen_report error:", error);
     throw error;
   }
@@ -434,15 +468,17 @@ export async function reopenReport({ reportId, reason }) {
  * 7. GET /categories — Daftar Kategori Aktif
  */
 export async function fetchCategories() {
-  if (!supabase) return DEFAULT_CATEGORIES;
+  const client = sbClient();
+  if (!client) return DEFAULT_CATEGORIES;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('categories')
       .select('id, name, slug, description, sort_order')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
 
+    if (error) noteAuthError(error);
     if (error || !data || data.length === 0) {
       return DEFAULT_CATEGORIES;
     }
@@ -456,15 +492,17 @@ export async function fetchCategories() {
  * 8. GET /status-definitions — Definisi Status RT
  */
 export async function fetchStatusDefinitions() {
-  if (!supabase) return knownStatusDefinitions;
+  const client = sbClient();
+  if (!client) return knownStatusDefinitions;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('status_definitions')
       .select('id, group, label, color_hex, requires_note, sort_order')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
 
+    if (error) noteAuthError(error);
     if (error || !data || data.length === 0) {
       return knownStatusDefinitions;
     }
@@ -485,10 +523,11 @@ export async function fetchStatusDefinitions() {
  * 9. GET /notifications — Daftar Notifikasi Warga
  */
 export async function fetchNotifications(unreadOnly = false) {
-  if (!supabase) return getMockNotifications();
+  const client = sbClient();
+  if (!client) return getMockNotifications();
 
   try {
-    let req = supabase
+    let req = client
       .from('notifications')
       .select('id, type, title, body, report_id, read_at, created_at')
       .order('created_at', { ascending: false })
@@ -499,6 +538,7 @@ export async function fetchNotifications(unreadOnly = false) {
     }
 
     const { data, error } = await req;
+    noteAuthError(error);
     if (error || !data) {
       return getMockNotifications();
     }
@@ -512,14 +552,16 @@ export async function fetchNotifications(unreadOnly = false) {
  * 10. GET /notifications/unread-count — Jumlah Belum Dibaca
  */
 export async function fetchUnreadNotificationCount() {
-  if (!supabase) return 2;
+  const client = sbClient();
+  if (!client) return 2;
 
   try {
-    const { count, error } = await supabase
+    const { count, error } = await client
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .is('read_at', null);
 
+    if (error) noteAuthError(error);
     if (error || count === null) return 0;
     return count;
   } catch {
@@ -531,14 +573,18 @@ export async function fetchUnreadNotificationCount() {
  * 11. POST /notifications/read — Tandai Sudah Dibaca
  */
 export async function markNotificationsRead({ ids = [], all = false }) {
-  if (!supabase) return { updated: ids.length || 1 };
+  const client = sbClient();
+  if (!client) return { updated: ids.length || 1 };
 
   try {
-    const { data, error } = await supabase.rpc('mark_notifications_read', {
+    const { data, error } = await client.rpc('mark_notifications_read', {
       p_ids: ids,
       p_all: all
     });
-    if (error) throw error;
+    if (error) {
+      noteAuthError(error);
+      throw error;
+    }
     return data;
   } catch (err) {
     console.warn("Gagal mark read:", err);
@@ -550,9 +596,10 @@ export async function markNotificationsRead({ ids = [], all = false }) {
  * 12. POST /memberships/join — Gabung RT via Kode Undangan atau Permohonan
  */
 export async function joinRt({ method = 'invite_code', code = null, rtSlug = 'rt-01-melati', note = null }) {
-  if (!supabase) throw new Error("Klien Supabase belum siap.");
+  const client = sbClient();
+  if (!client) throw new Error("Klien Supabase belum siap.");
 
-  const { data, error } = await supabase.rpc('join_rt', {
+  const { data, error } = await client.rpc('join_rt', {
     p_method: method,
     p_code: code,
     p_rt_slug: rtSlug,
@@ -560,6 +607,7 @@ export async function joinRt({ method = 'invite_code', code = null, rtSlug = 'rt
   });
 
   if (error) {
+    noteAuthError(error);
     console.error("join_rt error:", error);
     throw error;
   }

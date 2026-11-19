@@ -9,24 +9,33 @@ export function initPWA({ onInstallable, onInstalled } = {}) {
   // 1. Daftarkan Service Worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then((reg) => {
-          // Cek update
-          reg.addEventListener('updatefound', () => {
-            const newWorker = reg.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  showToast('Versi baru SULAP tersedia. Silakan muat ulang halaman.', 'info');
-                }
-              });
-            }
-          });
-        })
-        .catch((err) => {
-          console.warn('Registrasi Service Worker gagal:', err);
-        });
+      registerServiceWorker(0);
     });
+  }
+
+  function registerServiceWorker(retry) {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => {
+        // Cek update
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                showToast('Versi baru SULAP tersedia. Silakan muat ulang halaman.', 'info');
+              }
+            });
+          }
+        });
+      })
+      .catch((err) => {
+        // AbortError biasanya transien (halaman reload/hard-refresh saat registrasi).
+        if (err && err.name === 'AbortError' && retry < 2) {
+          setTimeout(() => registerServiceWorker(retry + 1), 1500);
+          return;
+        }
+        console.warn('Registrasi Service Worker gagal:', err);
+      });
   }
 
   // 2. Tangkap event beforeinstallprompt
