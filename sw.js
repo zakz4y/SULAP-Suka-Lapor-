@@ -3,7 +3,7 @@
  * Caches core app shell for offline reliability and fast load.
  */
 
-const CACHE_NAME = 'sulap-v1.5';
+const CACHE_NAME = 'sulap-v1.6';
 const CORE_ASSETS = [
   './',
   './index.html',

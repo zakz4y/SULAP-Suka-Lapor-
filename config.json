@@ -2,8 +2,8 @@
   "supabase": {
     "url": "https://pwhnqprkvbvltceuedxo.supabase.co",
     "anonKey": "sb_publishable_R1xg8YWrnjA0LNI3xWrtSw_wsgiLznt",
-    "serviceRoleKey": "your-supabase-service-role-key",
-    "jwtSecret": "your-supabase-jwt-secret",
+    "serviceRoleKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3aG5xcHJrdmJ2bHRjZXVlZHhvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5NTAxMTk3MiwiZXhwIjoyMTEwNTg3OTcyfQ.xeWpZkM8too95k12ND3llYMrE40JWH_qM1R1FaxdWQk",
+    "jwtSecret": "XQX3C6DOiWIYawp99lLyaJh44tOhAlZJUFYabEF+EJd44k5P9wIFsY9PuSq1A3l77LRua0ipnAnOuegp7bOtPg==",
     "region": "ap-southeast-1"
   },
   "api": {

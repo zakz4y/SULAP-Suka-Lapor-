@@ -28,13 +28,24 @@ export function initPWA({ onInstallable, onInstalled } = {}) {
           }
         });
       })
-      .catch((err) => {
-        // AbortError biasanya transien (halaman reload/hard-refresh saat registrasi).
-        if (err && err.name === 'AbortError' && retry < 2) {
-          setTimeout(() => registerServiceWorker(retry + 1), 1500);
+      .catch(async (err) => {
+        // AbortError biasanya karena worker lama/stale atau reload saat registrasi.
+        if (err && err.name === 'AbortError') {
+          if (retry < 2) {
+            try {
+              const regs = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(regs.map(r => r.unregister()));
+            } catch {
+              // Abaikan; coba daftar ulang di bawah
+            }
+            setTimeout(() => registerServiceWorker(retry + 1), 1500);
+            return;
+          }
+          // Gagal setelah retry: bukan blocker aplikasi, jangan spam console error.
+          console.info('Service Worker belum aktif (mode tanpa cache offline).');
           return;
         }
-        console.warn('Registrasi Service Worker gagal:', err);
+        console.info('Registrasi Service Worker dilewati:', err?.message || err);
       });
   }
 

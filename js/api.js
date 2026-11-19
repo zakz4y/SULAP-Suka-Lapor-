@@ -2,23 +2,22 @@
  * SULAP API Client & Supabase RPC Calls (Vanilla JS)
  * Sesuai spesifikasi docs/api-contract.md
  */
-import { supabase } from './config.js';
-
-// Flag agar aplikasi tidak terus memanggil Supabase saat kredensial ditolak (401)
-let supabaseAuthFailed = false;
+import { supabase, isSupabaseAuthBlocked } from './config.js';
 
 function sbClient() {
-  return supabaseAuthFailed ? null : supabase;
+  if (!supabase || isSupabaseAuthBlocked()) return null;
+  return supabase;
 }
 
 function noteAuthError(error) {
   if (!error) return;
   const status = String(error.status || error.code || '');
   const msg = String(error.message || error.error_description || '');
-  if (status === '401' || /invalid api key|jwt|unauthorized|invalid claim/i.test(msg)) {
-    if (!supabaseAuthFailed) {
-      supabaseAuthFailed = true;
-      console.warn('[SULAP] Supabase menolak kredensial (401): periksa anonKey di js/config.js. Mode data lokal diaktifkan.');
+  if (status === '401' || /401|invalid api key|jwt|unauthorized|invalid claim/i.test(msg)) {
+    // Flag utama ada di config.js (guardedFetch); ini hanya jaring pengaman.
+    if (!noteAuthError._warned) {
+      noteAuthError._warned = true;
+      console.warn('[SULAP] Supabase menolak kredensial (401). Mode data lokal diaktifkan.');
     }
   }
 }
