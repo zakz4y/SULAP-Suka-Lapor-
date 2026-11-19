@@ -2,7 +2,7 @@
 -- SEED DATA WARGA SULAP (Berdasarkan data_warga.csv)
 -- Idempoten: ON CONFLICT DO NOTHING
 --
-do 69719
+do $$
 declare
   v_rt_id uuid := 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid;
   v_user_id uuid;
@@ -871,4 +871,4 @@ begin
   values (v_user_id, v_rt_id, 'rt_admin'::public.member_role, 'active'::public.membership_status, 'request'::public.join_method, now())
   on conflict do nothing;
 
-end 69719;
+end $$;

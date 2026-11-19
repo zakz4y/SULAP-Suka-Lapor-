@@ -2656,6 +2656,10 @@ create trigger on_auth_user_created
 grant usage on schema public to authenticated;
 grant usage on schema public to anon;
 
+-- Grant select untuk public / anonymous (categories & status definitions)
+grant select on public.categories         to anon;
+grant select on public.status_definitions to anon;
+
 -- Cabut akses anon dari tabel domain (prinsip hak paling sedikit)
 revoke all on public.profiles            from anon;
 revoke all on public.rts                 from anon;
