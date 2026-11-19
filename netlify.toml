@@ -1,0 +1,11 @@
+# SULAP is a plain HTML/CSS/JS app (no Hugo / no static site generator).
+# The build step copies ONLY the public frontend files into `public/` so that
+# server-side secrets (config.json, data_warga_credentials.json, etc.) are never
+# published as static files.
+[build]
+  command = "rm -rf public && mkdir -p public && cp -r index.html favicon.ico manifest.webmanifest sw.js css js assets public/"
+  publish = "public"
+
+# The API function reads these files from disk at runtime.
+[functions.api]
+  included_files = ["config.json", "data_warga_credentials.json"]
