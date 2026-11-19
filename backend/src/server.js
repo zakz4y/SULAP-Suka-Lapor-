@@ -1,11 +1,14 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '../../');
+// Root repo: relatif terhadap file ini, dengan fallback ke cwd (mis. saat dibundel
+// sebagai serverless function, file pendukung ditempatkan relatif ke root project).
+const rootDir = [path.resolve(__dirname, '../../'), process.cwd()]
+  .find((dir) => fs.existsSync(path.join(dir, 'config.json'))) || path.resolve(__dirname, '../../');
 
 // Baca config.json dari root
 const configPath = path.resolve(rootDir, 'config.json');
@@ -417,9 +420,10 @@ export async function requestHandler(req, res) {
 
 export default requestHandler;
 
-// Di Vercel, handler dipanggil oleh platform (serverless), jangan listen.
-// Di lokal / VPS, jalankan sebagai HTTP server biasa.
-if (!process.env.VERCEL) {
+// Di Vercel / Netlify, handler dipanggil oleh platform (serverless), jangan listen.
+// Hanya listen jika file ini dijalankan langsung (node backend/src/server.js).
+const isDirectRun = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+if (isDirectRun && !process.env.VERCEL) {
   const server = http.createServer(requestHandler);
   server.listen(PORT, () => {
     console.log(`Server SULAP berjalan di http://localhost:${PORT}`);
