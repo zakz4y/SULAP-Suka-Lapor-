@@ -42,3 +42,15 @@ cd backend
 npm start
 ```
 Server berjalan di `http://localhost:3000`.
+
+## Deploy ke Vercel
+
+1. Import repo ini sebagai project Vercel.
+2. **Root Directory: kosong (root repo)** — jangan `backend/`. Kalau root diset ke `backend/`, `index.html` tidak ikut ter-deploy dan `/` membalas `{"error":{"code":"NOT_FOUND"...}}`.
+3. Framework Preset: **Other**. Build Command & Output Directory: kosong.
+4. `vercel.json` menangani:
+   - `/api/*` → serverless function `api/index.mjs` (memakai handler di `backend/src/server.js`).
+   - File statis (`index.html`, `css/`, `js/`, `assets/`, `favicon.ico`) disajikan langsung oleh Vercel.
+5. Redeploy setelah mengubah Root Directory.
+
+Backend tetap bisa dijalankan lokal: `node backend/src/server.js` (default port 3000, override `PORT`).

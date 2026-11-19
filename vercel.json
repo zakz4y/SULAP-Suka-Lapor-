@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index?__path=:path*"
+    }
+  ],
+  "functions": {
+    "api/index.mjs": {
+      "includeFiles": [
+        "config.json",
+        "data_warga_credentials.json"
+      ]
+    }
+  }
+}

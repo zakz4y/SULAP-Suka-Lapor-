@@ -66,7 +66,7 @@ let auditLogsStore = [
   { id: 2, actorName: 'Yuda Adi Pratama (Admin RT)', role: 'rt_admin', action: 'report.status_changed', entityType: 'reports', reason: 'Menugaskan tim PPSU untuk saluran mampet', createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString() }
 ];
 
-const server = http.createServer(async (req, res) => {
+export async function requestHandler(req, res) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
@@ -413,8 +413,15 @@ const server = http.createServer(async (req, res) => {
       }
     }));
   });
-});
+}
 
-server.listen(PORT, () => {
-  console.log(`Server SULAP berjalan di http://localhost:${PORT}`);
-});
+export default requestHandler;
+
+// Di Vercel, handler dipanggil oleh platform (serverless), jangan listen.
+// Di lokal / VPS, jalankan sebagai HTTP server biasa.
+if (!process.env.VERCEL) {
+  const server = http.createServer(requestHandler);
+  server.listen(PORT, () => {
+    console.log(`Server SULAP berjalan di http://localhost:${PORT}`);
+  });
+}
