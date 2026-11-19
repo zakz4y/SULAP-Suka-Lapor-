@@ -25,7 +25,9 @@ export const DEFAULT_STATUS_DEFINITIONS = [
 ];
 
 // Mock data rujukan lokal jika jaringan offline / Supabase kosong
-const LOCAL_STORAGE_REPORTS_KEY = 'sulap_local_reports';
+const LOCAL_STORAGE_REPORTS_KEY = 'sulap_local_reports_v2';
+const LOCAL_STORAGE_PHOTOS_KEY = 'sulap_report_photos';
+let knownStatusDefinitions = [...DEFAULT_STATUS_DEFINITIONS];
 
 function getLocalReports() {
   try {
@@ -42,6 +44,34 @@ function saveLocalReports(reports) {
   } catch (err) {
     console.warn('Gagal simpan local reports:', err);
   }
+}
+
+function getPhotoMap() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_PHOTOS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveReportPhotos(publicNo, photos) {
+  if (!publicNo || !photos || photos.length === 0) return;
+  try {
+    const map = getPhotoMap();
+    map[publicNo] = photos;
+    localStorage.setItem(LOCAL_STORAGE_PHOTOS_KEY, JSON.stringify(map));
+  } catch (err) {
+    console.warn('Gagal simpan foto laporan:', err);
+  }
+}
+
+function attachLocalPhotos(reports) {
+  const map = getPhotoMap();
+  return (reports || []).map(r => {
+    const photos = map[r.public_no];
+    return photos ? { ...r, photos } : r;
+  });
 }
 
 /**
@@ -109,10 +139,9 @@ export async function fetchFeedReports({ query = '', status = '', categoryId = '
     reports = getLocalReports();
   }
 
-  // Jika tetap kosong sama sekali (pertama kali buka), isi dengan data rujukan warga
+  // Tidak ada seed laporan contoh: data kosong sampai warga membuat laporan
   if (!reports || reports.length === 0) {
-    reports = getInitialMockReports();
-    saveLocalReports(reports);
+    reports = [];
   }
 
   // Client filtering jika ada query pencarian
@@ -126,7 +155,7 @@ export async function fetchFeedReports({ query = '', status = '', categoryId = '
     );
   }
 
-  return reports;
+  return attachLocalPhotos(reports);
 }
 
 /**
@@ -205,14 +234,21 @@ export async function fetchReportDetail(reportIdOrPublicNo) {
       timeline = [
         {
           id: 1,
-          to_label: 'Baru Masuk',
-          to_group: 'new',
+          to_label: getStatusLabel(found.status_group || 'new'),
+          to_group: found.status_group || 'new',
           actor_display_name: 'Warga',
-          note: 'Laporan pertama kali dibuat.',
-          created_at: found.created_at
+          note: found.status_group && found.status_group !== 'new'
+            ? 'Status terakhir tercatat pada perangkat ini.'
+            : 'Laporan pertama kali dibuat.',
+          created_at: found.updated_at || found.created_at
         }
       ];
     }
+  }
+
+  const photoMap = getPhotoMap();
+  if (report && report.public_no && photoMap[report.public_no]) {
+    report = { ...report, photos: photoMap[report.public_no] };
   }
 
   return { report, timeline, inspections };
@@ -221,9 +257,7 @@ export async function fetchReportDetail(reportIdOrPublicNo) {
 /**
  * 3. POST /reports — Buat Laporan Baru (create_report RPC)
  */
-export async function createReport({ title, description, categoryId, addressText, lat, lng, note }) {
-  if (!supabase) throw new Error("Klien Supabase belum siap.");
-
+export async function createReport({ title, description, categoryId, addressText, lat, lng, note, photos = [] }) {
   let finalCatId = categoryId;
   if (!finalCatId) {
     const cats = await fetchCategories();
@@ -239,6 +273,38 @@ export async function createReport({ title, description, categoryId, addressText
     note: note || null
   };
 
+  const saveLocalFallback = () => {
+    const localId = 'loc-' + Date.now();
+    const seq = Math.floor(Math.random() * 900) + 100;
+    const newLocal = {
+      id: localId,
+      public_no: `SULAP-RT01-${seq}`,
+      title: title.trim(),
+      description: description.trim(),
+      status_group: 'new',
+      status_label: 'Baru Masuk',
+      status_color: '#1D4ED8',
+      location_text: addressText || 'Lingkungan RT 01',
+      latitude_approx: lat ? Number(lat).toFixed(3) : null,
+      longitude_approx: lng ? Number(lng).toFixed(3) : null,
+      photo_count: photos.length,
+      photos,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      category_id: finalCatId,
+      version: 1
+    };
+    const locals = getLocalReports();
+    locals.unshift(newLocal);
+    saveLocalReports(locals);
+    saveReportPhotos(newLocal.public_no, photos);
+    return { id: localId, publicNo: newLocal.public_no };
+  };
+
+  if (!supabase) {
+    return saveLocalFallback();
+  }
+
   try {
     const { data, error } = await supabase.rpc('create_report', {
       p_category_id: finalCatId,
@@ -250,35 +316,15 @@ export async function createReport({ title, description, categoryId, addressText
 
     if (error) {
       console.warn("RPC create_report error, simpan lokal sebagai fallback:", error);
-      // Fallback lokal jika sesi belum di-set di DB
-      const localId = 'loc-' + Date.now();
-      const seq = Math.floor(Math.random() * 900) + 100;
-      const newLocal = {
-        id: localId,
-        public_no: `SULAP-RT01-${seq}`,
-        title: title.trim(),
-        description: description.trim(),
-        status_group: 'new',
-        status_label: 'Baru Masuk',
-        status_color: '#1D4ED8',
-        location_text: addressText || 'Lingkungan RT 01',
-        latitude_approx: lat ? Number(lat).toFixed(3) : null,
-        longitude_approx: lng ? Number(lng).toFixed(3) : null,
-        photo_count: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        category_id: finalCatId,
-        version: 1
-      };
-      const locals = getLocalReports();
-      locals.unshift(newLocal);
-      saveLocalReports(locals);
-      return { id: localId, publicNo: newLocal.public_no };
+      return saveLocalFallback();
     }
 
+    const publicNo = data?.publicNo || data?.public_no;
+    if (publicNo) saveReportPhotos(publicNo, photos);
     return data;
   } catch (err) {
-    throw err;
+    console.warn("create_report gagal, simpan lokal:", err);
+    return saveLocalFallback();
   }
 }
 
@@ -286,7 +332,36 @@ export async function createReport({ title, description, categoryId, addressText
  * 4. PATCH /reports/{publicNo}/status — Ubah Status (transition_report_status RPC)
  */
 export async function transitionReportStatus({ reportId, toStatusId, note, resolutionSummary, closureReason, expectedVersion = 1 }) {
-  if (!supabase) throw new Error("Klien Supabase belum siap.");
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(reportId));
+  const statusDef = knownStatusDefinitions.find(s => s.id === toStatusId)
+    || knownStatusDefinitions.find(s => s.group === toStatusId)
+    || DEFAULT_STATUS_DEFINITIONS.find(s => s.id === toStatusId)
+    || DEFAULT_STATUS_DEFINITIONS.find(s => s.group === toStatusId);
+
+  const updateLocal = () => {
+    const locals = getLocalReports();
+    const idx = locals.findIndex(r => String(r.id) === String(reportId) || String(r.public_no) === String(reportId));
+    if (idx === -1) throw new Error('Laporan tidak ditemukan pada penyimpanan lokal.');
+    if (!statusDef) throw new Error('Status tujuan tidak valid.');
+
+    locals[idx].status_group = statusDef.group;
+    locals[idx].status_label = statusDef.label;
+    locals[idx].status_color = statusDef.colorHex;
+    locals[idx].version = (locals[idx].version || 1) + 1;
+    locals[idx].updated_at = new Date().toISOString();
+    saveLocalReports(locals);
+
+    return {
+      status: { group: statusDef.group, label: statusDef.label },
+      version: locals[idx].version,
+      local: true
+    };
+  };
+
+  // Laporan lokal (offline / RPC gagal sebelumnya) tidak bisa lewat RPC
+  if (!supabase || !isUuid) {
+    return updateLocal();
+  }
 
   const { data, error } = await supabase.rpc('transition_report_status', {
     p_report_id: reportId,
@@ -298,17 +373,18 @@ export async function transitionReportStatus({ reportId, toStatusId, note, resol
   });
 
   if (error) {
-    console.error("RPC transition_report_status error:", error);
-    throw error;
+    console.warn("RPC transition_report_status error, memakai fallback lokal:", error);
+    return updateLocal();
   }
 
   // Update data di cache lokal
   const locals = getLocalReports();
-  const idx = locals.findIndex(r => r.id === reportId);
+  const idx = locals.findIndex(r => String(r.id) === String(reportId));
   if (idx !== -1) {
     locals[idx].status_group = data?.status?.group || locals[idx].status_group;
     locals[idx].status_label = data?.status?.label || locals[idx].status_label;
     locals[idx].version = data?.version || (locals[idx].version + 1);
+    locals[idx].updated_at = new Date().toISOString();
     saveLocalReports(locals);
   }
 
@@ -380,7 +456,7 @@ export async function fetchCategories() {
  * 8. GET /status-definitions — Definisi Status RT
  */
 export async function fetchStatusDefinitions() {
-  if (!supabase) return DEFAULT_STATUS_DEFINITIONS;
+  if (!supabase) return knownStatusDefinitions;
 
   try {
     const { data, error } = await supabase
@@ -390,17 +466,18 @@ export async function fetchStatusDefinitions() {
       .order('sort_order', { ascending: true });
 
     if (error || !data || data.length === 0) {
-      return DEFAULT_STATUS_DEFINITIONS;
+      return knownStatusDefinitions;
     }
-    return data.map(d => ({
+    knownStatusDefinitions = data.map(d => ({
       id: d.id,
       group: d.group,
       label: d.label,
       colorHex: d.color_hex,
       requiresNote: d.requires_note
     }));
+    return knownStatusDefinitions;
   } catch {
-    return DEFAULT_STATUS_DEFINITIONS;
+    return knownStatusDefinitions;
   }
 }
 
@@ -518,101 +595,6 @@ function getStatusColor(group) {
   return map[group] || '#1D4ED8';
 }
 
-/**
- * Mock data rujukan awal saat basis data kosong
- */
-function getInitialMockReports() {
-  return [
-    {
-      id: 'mock-01',
-      public_no: 'SULAP-RT01-0042',
-      title: 'Saluran air tersumbat di depan gang',
-      description: 'Air tidak mengalir sejak hujan lebat kemarin sore dan mulai mengeluarkan bau tidak sedap ke pemukiman warga.',
-      status_group: 'in_progress',
-      status_label: 'Dalam Penanganan',
-      status_color: '#0E6B5C',
-      location_text: 'Gang Melati 2, depan pos ronda',
-      latitude_approx: '-6.242',
-      longitude_approx: '106.799',
-      photo_count: 2,
-      created_at: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 1 * 3600 * 1000).toISOString(),
-      category_name: 'Saluran Air',
-      version: 2
-    },
-    {
-      id: 'mock-02',
-      public_no: 'SULAP-RT01-0041',
-      title: 'Lampu penerangan jalan padam di perempatan utama',
-      description: 'Lampu jalan tiang nomor 04 mati total sejak dua hari lalu. Area menjadi gelap dan rawan kecelakaan di malam hari.',
-      status_group: 'inspection',
-      status_label: 'Inspeksi Lapangan',
-      status_color: '#B45309',
-      location_text: 'Perempatan Jl. Kenanga & Melati',
-      latitude_approx: '-6.241',
-      longitude_approx: '106.798',
-      photo_count: 1,
-      created_at: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
-      category_name: 'Lampu Jalan',
-      version: 1
-    },
-    {
-      id: 'mock-03',
-      public_no: 'SULAP-RT01-0040',
-      title: 'Tumpukan sampah liar di samping kebun kosong',
-      description: 'Ada oknum membuang kantong sampah di pinggir jalan kebun. Perlu dibersihkan dan dipasang plang peringatan larangan membuang sampah.',
-      status_group: 'new',
-      status_label: 'Baru Masuk',
-      status_color: '#1D4ED8',
-      location_text: 'Samping kebun RT 01',
-      latitude_approx: '-6.243',
-      longitude_approx: '106.801',
-      photo_count: 1,
-      created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-      category_name: 'Sampah',
-      version: 1
-    },
-    {
-      id: 'mock-04',
-      public_no: 'SULAP-RT01-0039',
-      title: 'Jalan paving amblas setelah dilewati truk material',
-      description: 'Sebagian paving block amblas sedalam kira-kira 15 cm. Membahayakan pengendara motor yang lewat saat gelap.',
-      status_group: 'resolved',
-      status_label: 'Selesai',
-      status_color: '#16A34A',
-      location_text: 'Depan rumah No. B-14',
-      latitude_approx: '-6.240',
-      longitude_approx: '106.797',
-      photo_count: 3,
-      created_at: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
-      category_name: 'Jalan Rusak',
-      version: 3
-    }
-  ];
-}
-
 function getMockNotifications() {
-  return [
-    {
-      id: 'notif-1',
-      type: 'report_status_changed',
-      title: 'Laporan SULAP-RT01-0042 diperbarui',
-      body: 'Status berubah menjadi Dalam Penanganan. Petugas PPSU dijadwalkan turun ke lokasi.',
-      report_id: 'mock-01',
-      read_at: null,
-      created_at: new Date(Date.now() - 1 * 3600 * 1000).toISOString()
-    },
-    {
-      id: 'notif-2',
-      type: 'report_status_changed',
-      title: 'Laporan SULAP-RT01-0039 selesai',
-      body: 'Perbaikan paving block telah diselesaikan oleh tim perbaikan swadaya RT.',
-      report_id: 'mock-04',
-      read_at: null,
-      created_at: new Date(Date.now() - 6 * 3600 * 1000).toISOString()
-    }
-  ];
+  return [];
 }

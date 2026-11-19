@@ -3,7 +3,7 @@
  * Caches core app shell for offline reliability and fast load.
  */
 
-const CACHE_NAME = 'sulap-v1.1';
+const CACHE_NAME = 'sulap-v1.2';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -78,25 +78,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-While-Revalidate untuk static assets & app shell
+  // Network-first untuk app shell agar perubahan lokal langsung terlihat
   event.respondWith(
-    caches.match(req).then((cachedResponse) => {
-      const fetchPromise = fetch(req).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(req, responseToCache);
-          });
-        }
-        return networkResponse;
-      }).catch(() => {
-        // Jika offline dan aset tidak ada di cache, arahkan ke index.html jika navigasi halaman
-        if (req.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
+    fetch(req).then((networkResponse) => {
+      if (networkResponse && networkResponse.status === 200 && url.origin === self.location.origin) {
+        const responseToCache = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(req, responseToCache);
+        });
+      }
+      return networkResponse;
+    }).catch(() => {
+      return caches.match(req).then((cached) => {
+        if (cached) return cached;
+        if (req.mode === 'navigate') return caches.match('./index.html');
+        return new Response('', { status: 503 });
       });
-
-      return cachedResponse || fetchPromise;
     })
   );
 });

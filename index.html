@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="SULAP">
 
-  <title>SULAP — Sistem Pelaporan Kendala Lingkungan RT</title>
+  <title>Dashboard — SULAP</title>
 
   <!-- PWA Manifest & Icons -->
   <link rel="manifest" href="manifest.webmanifest">
@@ -53,31 +53,31 @@
         <!-- Navigasi Menu Warga -->
         <div class="nav-section-title">Warga Lingkungan</div>
         <nav class="sidebar-nav" aria-label="Navigasi Warga">
-          <ul class="nav-menu" role="tablist">
+          <ul class="nav-menu">
             <li>
-              <button class="nav-link active" data-nav="dashboard" role="tab" aria-selected="true">
+              <a href="index.html" class="nav-link active" aria-current="page">
                 <i class="ph ph-squares-four ph-bold"></i>
                 <span>Dashboard</span>
-              </button>
+              </a>
             </li>
             <li>
-              <button class="nav-link" data-nav="reports" role="tab" aria-selected="false">
+              <a href="reports.html" class="nav-link">
                 <i class="ph ph-clipboard-text"></i>
                 <span>Laporan RT</span>
-              </button>
+              </a>
             </li>
             <li>
-              <button class="nav-link" data-nav="notifications" role="tab" aria-selected="false">
+              <a href="notifications.html" class="nav-link">
                 <i class="ph ph-bell"></i>
                 <span>Notifikasi</span>
                 <span class="nav-badge-dot hidden" id="nav-notif-dot"></span>
-              </button>
+              </a>
             </li>
             <li>
-              <button class="nav-link" data-nav="settings" role="tab" aria-selected="false">
+              <a href="settings.html" class="nav-link">
                 <i class="ph ph-gear"></i>
                 <span>Pengaturan</span>
-              </button>
+              </a>
             </li>
           </ul>
         </nav>
@@ -85,13 +85,13 @@
         <!-- Navigasi Menu Admin RT -->
         <div class="nav-section-title" id="nav-title-admin">Pengurus RT</div>
         <nav class="sidebar-nav" aria-label="Navigasi Admin RT">
-          <ul class="nav-menu" role="tablist">
+          <ul class="nav-menu">
             <li>
-              <button class="nav-link" data-nav="admin" role="tab" aria-selected="false" id="nav-btn-admin">
+              <a href="admin.html" class="nav-link" id="nav-btn-admin">
                 <i class="ph ph-shield-check"></i>
                 <span>Admin RT</span>
-                <span class="nav-badge-pill" id="badge-admin-needs-action">2</span>
-              </button>
+                <span class="nav-badge-pill" id="badge-admin-needs-action">0</span>
+              </a>
             </li>
           </ul>
         </nav>
@@ -99,12 +99,12 @@
         <!-- Navigasi Menu Developer Platform -->
         <div class="nav-section-title" id="nav-title-dev">Sistem Platform</div>
         <nav class="sidebar-nav" aria-label="Navigasi Developer">
-          <ul class="nav-menu" role="tablist">
+          <ul class="nav-menu">
             <li>
-              <button class="nav-link" data-nav="developer" role="tab" aria-selected="false" id="nav-btn-developer">
+              <a href="developer.html" class="nav-link" id="nav-btn-developer">
                 <i class="ph ph-terminal-window"></i>
                 <span>Developer Hub</span>
-              </button>
+              </a>
             </li>
           </ul>
         </nav>
@@ -129,6 +129,12 @@
       
       <!-- Top Header Bar (docs/design.md 6.2) -->
       <header class="top-header">
+        <!-- Brand khusus mobile (logo kiri) -->
+        <div class="mobile-brand">
+          <img src="assets/logo.png" alt="Logo SULAP">
+          <span>SULAP</span>
+        </div>
+
         <div class="greeting-text">
           <div class="rt-tag-pill">
             <span class="pulse-indicator"></span>
@@ -139,23 +145,24 @@
         </div>
 
         <div class="header-controls">
-          <!-- Quick Role Simulator / Switcher -->
-          <div class="role-switcher-pill" title="Simulasi Tampilan Peran">
-            <i class="ph ph-identification-card"></i>
-            <select id="quick-role-select">
-              <option value="resident">Warga</option>
-              <option value="rt_admin">Admin RT</option>
-              <option value="developer">Developer</option>
-            </select>
-          </div>
+          <!-- Tombol Admin RT khusus mobile -->
+          <button class="btn-icon-control mobile-admin-btn hidden" id="mobile-admin-header-btn" title="Panel Admin RT" onclick="location.href='admin.html'">
+            <i class="ph ph-shield-check"></i>
+          </button>
+          <button class="btn-icon-control mobile-admin-btn hidden" id="mobile-dev-header-btn" title="Developer Hub" onclick="location.href='developer.html'">
+            <i class="ph ph-code"></i>
+          </button>
 
           <!-- Search Pill Oval (rounded-full 42px) -->
-          <div class="search-pill-wrapper">
+          <div class="search-pill-wrapper" id="header-search-wrapper">
+            <button type="button" class="search-toggle-btn" id="btn-search-toggle" aria-label="Cari laporan">
+              <i class="ph ph-magnifying-glass"></i>
+            </button>
             <i class="ph ph-magnifying-glass search-icon-pos"></i>
             <input type="text" id="global-search-input" class="search-pill-input" placeholder="Cari nomor tiket, lokasi, jalan...">
           </div>
 
-          <!-- Action Button Buat Laporan -->
+          <!-- Action Button Buat Laporan (desktop) -->
           <button id="btn-new-report" class="btn-action-primary" title="Buat Aduan / Laporan Baru">
             <i class="ph ph-plus-circle ph-bold"></i>
             <span>Buat Laporan</span>
@@ -180,8 +187,8 @@
       <!-- Auto Layout Content Panels -->
       <div class="content-scrollable-area">
 
-        <!-- ================= TAB 1: DASHBOARD (BENTO GRID) ================= -->
-        <section id="panel-dashboard" class="tab-panel active">
+        <!-- ================= DASHBOARD (BENTO GRID) ================= -->
+        <section id="panel-dashboard" class="page-content">
           <div class="bento-canvas-body">
             
             <!-- Row Metrik 3 Kolom Auto Layout (docs/design.md 6.3) -->
@@ -205,7 +212,7 @@
                   </div>
                 </div>
                 <div class="metric-number tabular-nums" id="stat-process-count">0</div>
-                <div class="metric-footer-text">Inspeksi & penanganan lapangan</div>
+                <div class="metric-footer-text">Inspeksi &amp; penanganan lapangan</div>
               </div>
 
               <div class="metric-card">
@@ -256,40 +263,13 @@
                   </div>
 
                   <!-- Grafik Batang Responsif -->
-                  <div class="chart-bars-wrap">
-                    <div class="chart-bar-col">
-                      <div class="bar-pill" style="height: 38%;" title="Senin: 3 aduan"></div>
-                      <span class="bar-day-label">Sen</span>
-                    </div>
-                    <div class="chart-bar-col">
-                      <div class="bar-pill" style="height: 55%;" title="Selasa: 5 aduan"></div>
-                      <span class="bar-day-label">Sel</span>
-                    </div>
-                    <div class="chart-bar-col">
-                      <div class="bar-pill" style="height: 25%;" title="Rabu: 2 aduan"></div>
-                      <span class="bar-day-label">Rab</span>
-                    </div>
-                    <div class="chart-bar-col">
-                      <div class="bar-pill peak-day" style="height: 88%;" title="Kamis: 8 aduan (Puncak)"></div>
-                      <span class="bar-day-label">Kam</span>
-                    </div>
-                    <div class="chart-bar-col">
-                      <div class="bar-pill" style="height: 45%;" title="Jumat: 4 aduan"></div>
-                      <span class="bar-day-label">Jum</span>
-                    </div>
-                    <div class="chart-bar-col">
-                      <div class="bar-pill" style="height: 60%;" title="Sabtu: 6 aduan"></div>
-                      <span class="bar-day-label">Sab</span>
-                    </div>
-                    <div class="chart-bar-col">
-                      <div class="bar-pill" style="height: 70%;" title="Minggu: 7 aduan"></div>
-                      <span class="bar-day-label">Min</span>
-                    </div>
+                  <div class="chart-bars-wrap" id="chart-bars-container">
+                    <!-- Dirender dari js/pages/dashboard.js -->
                   </div>
                   
-                  <div class="chart-summary-box">
-                    <i class="ph ph-trend-up" style="color: #16A34A; font-size: 16px;"></i>
-                    <span>Tingkat responsif penanganan RT meningkat <strong>18%</strong> minggu ini.</span>
+                  <div class="chart-summary-box" id="chart-summary-box">
+                    <i class="ph ph-chart-bar" style="color: var(--ink-tertiary); font-size: 16px;"></i>
+                    <span id="chart-summary-text">Belum ada laporan masuk minggu ini.</span>
                   </div>
                 </section>
 
@@ -302,453 +282,12 @@
                     </div>
                   </div>
 
-                  <div class="agenda-list">
-                    <div class="agenda-item" data-agenda-action="inspeksi-saluran">
-                      <div class="agenda-left">
-                        <div class="agenda-icon">
-                          <i class="ph ph-drop"></i>
-                        </div>
-                        <div class="agenda-details">
-                          <div class="title">Tinjau Saluran Mampet</div>
-                          <div class="meta">Gang Melati 2 • Hari Ini, 09:00 WIB</div>
-                        </div>
-                      </div>
-                      <i class="ph ph-caret-right" style="color: var(--ink-tertiary);"></i>
-                    </div>
-
-                    <div class="agenda-item" data-agenda-action="inspeksi-lampu">
-                      <div class="agenda-left">
-                        <div class="agenda-icon">
-                          <i class="ph ph-lightbulb"></i>
-                        </div>
-                        <div class="agenda-details">
-                          <div class="title">Cek Lampu Padam Perempatan</div>
-                          <div class="meta">Jl. Kenanga & Melati • Pk 16:30 WIB</div>
-                        </div>
-                      </div>
-                      <i class="ph ph-caret-right" style="color: var(--ink-tertiary);"></i>
-                    </div>
+                  <div class="agenda-list" id="agenda-list-container">
+                    <!-- Dirender dari js/pages/dashboard.js -->
                   </div>
                 </section>
 
               </div>
-            </div>
-
-          </div>
-        </section>
-
-        <!-- ================= TAB 2: LAPORAN RT (FEED LENGKAP & FILTER) ================= -->
-        <section id="panel-reports" class="tab-panel">
-          <div class="tab-panel-container">
-            
-            <div class="panel-section-header">
-              <div>
-                <h2>Semua Laporan Warga RT</h2>
-                <p>Keterbukaan aduan lingkungan untuk seluruh warga RT terdaftar.</p>
-              </div>
-            </div>
-
-            <!-- Auto Layout Filter Bar -->
-            <div class="filter-controls-card">
-              <div class="filter-status-pills" id="feed-status-filter-pills">
-                <button class="filter-pill active" data-filter-status="all">Semua</button>
-                <button class="filter-pill" data-filter-status="new">Baru Masuk</button>
-                <button class="filter-pill" data-filter-status="inspection">Inspeksi</button>
-                <button class="filter-pill" data-filter-status="in_progress">Dalam Proses</button>
-                <button class="filter-pill" data-filter-status="resolved">Selesai</button>
-              </div>
-
-              <div class="filter-secondary-row">
-                <div class="form-group-inline">
-                  <label for="filter-category-select">Kategori:</label>
-                  <select id="filter-category-select" class="form-select-sm">
-                    <option value="">Semua Kategori</option>
-                  </select>
-                </div>
-
-                <label class="checkbox-label" id="label-filter-mine">
-                  <input type="checkbox" id="filter-mine-checkbox">
-                  <span>Hanya Laporan Saya</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Grid Auto Layout Laporan (Responsive 1-2 Kolom) -->
-            <div id="full-reports-grid" class="reports-auto-grid">
-              <!-- Render otomatis via js/app.js -->
-            </div>
-
-          </div>
-        </section>
-
-        <!-- ================= TAB 3: ADMIN RT WEB PORTAL ================= -->
-        <section id="panel-admin" class="tab-panel">
-          <div class="tab-panel-container">
-            
-            <div class="panel-section-header">
-              <div>
-                <h2>Panel Pengurus & Admin RT</h2>
-                <p>Kelola triase aduan warga, tugaskan inspeksi, dan terbitkan kode undangan RT.</p>
-              </div>
-              <div style="display: flex; gap: 8px;">
-                <button class="btn-action-secondary" id="btn-admin-export-csv">
-                  <i class="ph ph-file-csv"></i>
-                  <span>Ekspor Rekap CSV</span>
-                </button>
-                <button class="btn-action-primary" id="btn-admin-create-invite">
-                  <i class="ph ph-ticket"></i>
-                  <span>Buat Kode Undangan</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Sub-navigasi Admin RT -->
-            <div class="subnav-tabs">
-              <button class="subnav-tab-btn active" data-admin-subtab="overview">Butuh Tindakan (Triase)</button>
-              <button class="subnav-tab-btn" data-admin-subtab="warga">Daftar Warga RT (36)</button>
-              <button class="subnav-tab-btn" data-admin-subtab="invites">Kode Undangan Warga</button>
-            </div>
-
-            <!-- Sub-panel 1: Overview Butuh Tindakan -->
-            <div class="admin-subpanel active" id="admin-subpanel-overview">
-              <div class="metrics-row">
-                <div class="metric-card">
-                  <div class="metric-card-top">
-                    <span class="metric-desc">Butuh Triase Cepat</span>
-                    <div class="metric-icon-box icon-box-amber"><i class="ph ph-warning-circle ph-bold"></i></div>
-                  </div>
-                  <div class="metric-number tabular-nums" id="admin-triaged-count">2</div>
-                  <div class="metric-footer-text">Laporan belum diputuskan pengurus</div>
-                </div>
-                <div class="metric-card">
-                  <div class="metric-card-top">
-                    <span class="metric-desc">Inspeksi Terjadwal</span>
-                    <div class="metric-icon-box icon-box-purple"><i class="ph ph-clipboard-text ph-bold"></i></div>
-                  </div>
-                  <div class="metric-number tabular-nums" id="admin-inspect-count">2</div>
-                  <div class="metric-footer-text">Butuh pengecekan fisik lokasi</div>
-                </div>
-                <div class="metric-card">
-                  <div class="metric-card-top">
-                    <span class="metric-desc">Tuntas 7 Hari Terakhir</span>
-                    <div class="metric-icon-box icon-box-green"><i class="ph ph-check-circle ph-bold"></i></div>
-                  </div>
-                  <div class="metric-number tabular-nums" id="admin-resolved-count">11</div>
-                  <div class="metric-footer-text">Laporan diselesaikan pengurus</div>
-                </div>
-              </div>
-
-              <div class="bento-card-module">
-                <div class="module-header">
-                  <div>
-                    <h3>Daftar Prioritas Tindak Lanjut RT</h3>
-                    <p class="module-subtitle">Aduan dengan usia tunggu paling lama atau status butuh tindakan.</p>
-                  </div>
-                </div>
-                <div class="needs-action-list" id="admin-needs-action-list">
-                  <!-- Rendered via js/app.js -->
-                </div>
-              </div>
-            </div>
-
-            <!-- Sub-panel 2: Daftar Warga RT (Berdasarkan data_warga.csv) -->
-            <div class="admin-subpanel" id="admin-subpanel-warga">
-              <div class="data-table-container">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Warga</th>
-                      <th>Jabatan</th>
-                      <th>Peran Sistem</th>
-                      <th>Username</th>
-                      <th>Email SULAP</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="admin-warga-tbody">
-                    <!-- Rendered via js/app.js -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Sub-panel 3: Kelola Kode Undangan Warga -->
-            <div class="admin-subpanel" id="admin-subpanel-invites">
-              <div class="data-table-container">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Kode Undangan</th>
-                      <th>Label Kelompok</th>
-                      <th>Penggunaan</th>
-                      <th>Batas Kuota</th>
-                      <th>Masa Berlaku</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="admin-invites-tbody">
-                    <!-- Rendered via js/app.js -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        <!-- ================= TAB 4: DEVELOPER WEB PORTAL ================= -->
-        <section id="panel-developer" class="tab-panel">
-          <div class="tab-panel-container">
-            
-            <div class="panel-section-header">
-              <div>
-                <h2>Developer Hub & Manajemen Multi-RT</h2>
-                <p>Platform admin: Kelola tenant RT, konfigurasi parameter sistem, dan pantau audit trail.</p>
-              </div>
-              <button class="btn-action-primary" id="btn-dev-create-rt">
-                <i class="ph ph-buildings"></i>
-                <span>Daftarkan RT Baru</span>
-              </button>
-            </div>
-
-            <!-- Sub-navigasi Developer -->
-            <div class="subnav-tabs">
-              <button class="subnav-tab-btn active" data-dev-subtab="overview">Metrik Platform</button>
-              <button class="subnav-tab-btn" data-dev-subtab="rts">Tenant RT Terdaftar</button>
-              <button class="subnav-tab-btn" data-dev-subtab="users">Kelola Peran & Akses</button>
-              <button class="subnav-tab-btn" data-dev-subtab="audit">Audit Log Mutasi</button>
-              <button class="subnav-tab-btn" data-dev-subtab="settings">Pengaturan Sistem</button>
-            </div>
-
-            <!-- Sub-panel 1: Developer Overview -->
-            <div class="admin-subpanel active" id="dev-subpanel-overview">
-              <div class="metrics-row">
-                <div class="metric-card">
-                  <div class="metric-card-top">
-                    <span class="metric-desc">Tenant RT Aktif</span>
-                    <div class="metric-icon-box icon-box-blue"><i class="ph ph-buildings ph-bold"></i></div>
-                  </div>
-                  <div class="metric-number tabular-nums" id="dev-stat-rt">2</div>
-                  <div class="metric-footer-text">Wilayah rukun tetangga terhubung</div>
-                </div>
-                <div class="metric-card">
-                  <div class="metric-card-top">
-                    <span class="metric-desc">Total Akun Warga</span>
-                    <div class="metric-icon-box icon-box-purple"><i class="ph ph-users ph-bold"></i></div>
-                  </div>
-                  <div class="metric-number tabular-nums" id="dev-stat-users">36</div>
-                  <div class="metric-footer-text">Sesuai data_warga.csv</div>
-                </div>
-                <div class="metric-card">
-                  <div class="metric-card-top">
-                    <span class="metric-desc">Koneksi Database</span>
-                    <div class="metric-icon-box icon-box-green"><i class="ph ph-database ph-bold"></i></div>
-                  </div>
-                  <div class="metric-number" style="font-size: 16px; font-weight: 700; color: #16A34A;">OK (Supabase)</div>
-                  <div class="metric-footer-text">PostgreSQL 17 RPC terintegrasi</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Sub-panel 2: Tenant RTs -->
-            <div class="admin-subpanel" id="dev-subpanel-rts">
-              <div class="data-table-container">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Nama RT</th>
-                      <th>Slug</th>
-                      <th>Wilayah RW</th>
-                      <th>Prefix Tiket</th>
-                      <th>Email Admin RT</th>
-                      <th>Status Tenant</th>
-                    </tr>
-                  </thead>
-                  <tbody id="dev-rts-tbody">
-                    <!-- Rendered via js/app.js -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Sub-panel 3: User Role Management (data_warga.csv credentials) -->
-            <div class="admin-subpanel" id="dev-subpanel-users">
-              <div class="data-table-container">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Nama Lengkap</th>
-                      <th>Username</th>
-                      <th>Password Login</th>
-                      <th>Jabatan Asli</th>
-                      <th>Peran Sistem</th>
-                      <th>Aksi Ubah Peran</th>
-                    </tr>
-                  </thead>
-                  <tbody id="dev-users-tbody">
-                    <!-- Rendered via js/app.js -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Sub-panel 4: Audit Logs -->
-            <div class="admin-subpanel" id="dev-subpanel-audit">
-              <div class="data-table-container">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Waktu</th>
-                      <th>Pelaku Aksi</th>
-                      <th>Peran</th>
-                      <th>Aksi</th>
-                      <th>Entitas</th>
-                      <th>Keterangan / Alasan</th>
-                    </tr>
-                  </thead>
-                  <tbody id="dev-audit-tbody">
-                    <!-- Rendered via js/app.js -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Sub-panel 5: Platform Settings -->
-            <div class="admin-subpanel" id="dev-subpanel-settings">
-              <div class="settings-card">
-                <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 12px;">Parameter Global Sistem SULAP</h4>
-                <div class="info-row">
-                  <span class="info-label">Retensi Notifikasi (Hari)</span>
-                  <input type="number" class="form-input" style="width: 100px; padding: 6px 10px;" value="180" id="dev-setting-retention">
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Batas Unggah Foto per Laporan</span>
-                  <input type="number" class="form-input" style="width: 100px; padding: 6px 10px;" value="5" id="dev-setting-photos">
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Maksimal Ukuran File (Bytes)</span>
-                  <input type="number" class="form-input" style="width: 120px; padding: 6px 10px;" value="5242880" id="dev-setting-bytes">
-                </div>
-                <button class="btn-action-primary" id="btn-save-dev-settings" style="margin-top: 14px;">
-                  Simpan Konfigurasi Platform
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        <!-- ================= TAB 5: NOTIFIKASI ================= -->
-        <section id="panel-notifications" class="tab-panel">
-          <div class="tab-panel-container max-w-720">
-            
-            <div class="panel-section-header">
-              <div>
-                <h2>Pusat Notifikasi</h2>
-                <p>Pemberitahuan perubahan status aduan dan pengumuman RT.</p>
-              </div>
-              <button class="btn-action-secondary" id="btn-mark-all-read">
-                <i class="ph ph-check"></i>
-                <span>Tandai Semua Dibaca</span>
-              </button>
-            </div>
-
-            <div class="notification-list-card" id="notifications-list-container">
-              <!-- Render otomatis via js/app.js -->
-            </div>
-
-          </div>
-        </section>
-
-        <!-- ================= TAB 6: PENGATURAN (AKUN & RT) ================= -->
-        <section id="panel-settings" class="tab-panel">
-          <div class="tab-panel-container max-w-720">
-            
-            <div class="panel-section-header">
-              <div>
-                <h2>Pengaturan & Profil</h2>
-                <p>Kelola data akun, informasi RT, dan preferensi aplikasi.</p>
-              </div>
-            </div>
-
-            <div class="settings-stack">
-              
-              <!-- Profil Pengguna -->
-              <div class="settings-card">
-                <div class="settings-card-header">
-                  <div class="settings-card-icon">
-                    <i class="ph ph-user"></i>
-                  </div>
-                  <div>
-                    <h4>Data Akun Warga</h4>
-                    <p>Status identitas dan keanggotaan Anda di lingkungan RT.</p>
-                  </div>
-                </div>
-                <div class="settings-card-body">
-                  <div class="info-row">
-                    <span class="info-label">Nama Pengguna</span>
-                    <strong id="settings-display-name">Warga Tamu</strong>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label">Jabatan di Lingkungan</span>
-                    <span class="badge-role" id="settings-jabatan-badge">Warga</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label">Hak Akses Sistem</span>
-                    <span class="badge-role" id="settings-role-badge">Tamu (Guest)</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label">Wilayah RT Aktif</span>
-                    <strong id="settings-rt-name">RT 01 Melati / RW 03</strong>
-                  </div>
-                  <div style="margin-top: 14px; display: flex; gap: 8px;">
-                    <button class="btn-action-secondary" id="btn-settings-auth-action">
-                      Masuk / Daftar Akun
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Hubungkan Kode Undangan RT -->
-              <div class="settings-card">
-                <div class="settings-card-header">
-                  <div class="settings-card-icon" style="background: #E5F6E9; color: #1B6836;">
-                    <i class="ph ph-qr-code"></i>
-                  </div>
-                  <div>
-                    <h4>Gabung ke Lingkungan RT</h4>
-                    <p>Masukkan 8 digit kode undangan dari pengurus RT Anda.</p>
-                  </div>
-                </div>
-                <div class="settings-card-body">
-                  <form id="form-join-rt" style="display: flex; gap: 8px;">
-                    <input type="text" id="input-invite-code" class="form-input text-uppercase" placeholder="Contoh: MELATI7K" maxlength="12" required>
-                    <button type="submit" class="btn-action-primary" style="white-space: nowrap;">
-                      Gabung RT
-                    </button>
-                  </form>
-                </div>
-              </div>
-
-              <!-- PWA Install Standalone -->
-              <div class="settings-card">
-                <div class="settings-card-header">
-                  <div class="settings-card-icon" style="background: #E7EFF9; color: #1D5FA8;">
-                    <i class="ph ph-device-mobile"></i>
-                  </div>
-                  <div>
-                    <h4>Aplikasi SULAP di Perangkat</h4>
-                    <p>Gunakan aplikasi layaknya aplikasi native tanpa Play Store / App Store.</p>
-                  </div>
-                </div>
-                <div class="settings-card-body">
-                  <button class="btn-action-secondary" id="btn-install-pwa-settings">
-                    <i class="ph ph-download-simple"></i>
-                    <span>Pasang SULAP ke Layar Utama</span>
-                  </button>
-                </div>
-              </div>
-
             </div>
 
           </div>
@@ -759,27 +298,29 @@
 
     <!-- Mobile Bottom Navigation Capsule (docs/design.md 5.2) -->
     <nav class="mobile-bottom-nav" aria-label="Navigasi Bawah Ponsel">
-      <button class="mobile-nav-btn active" data-nav="dashboard">
+      <a href="index.html" class="mobile-nav-btn active" aria-current="page">
         <i class="ph ph-squares-four ph-bold"></i>
         <span>Beranda</span>
-      </button>
-      <button class="mobile-nav-btn" data-nav="reports">
+      </a>
+      <a href="reports.html" class="mobile-nav-btn">
         <i class="ph ph-clipboard-text"></i>
         <span>Laporan</span>
+      </a>
+
+      <!-- Tombol Buat Laporan (tengah) -->
+      <button class="mobile-nav-fab" id="mobile-btn-new-report" aria-label="Buat Laporan Baru">
+        <i class="ph ph-plus ph-bold"></i>
       </button>
-      <button class="mobile-nav-btn" data-nav="admin" id="mobile-nav-admin">
-        <i class="ph ph-shield-check"></i>
-        <span>Admin</span>
-      </button>
-      <button class="mobile-nav-btn" data-nav="notifications">
+
+      <a href="notifications.html" class="mobile-nav-btn">
         <i class="ph ph-bell"></i>
         <span>Notif</span>
         <span class="mobile-notif-dot hidden" id="mobile-notif-dot"></span>
-      </button>
-      <button class="mobile-nav-btn" data-nav="settings">
-        <i class="ph ph-gear"></i>
+      </a>
+      <a href="settings.html" class="mobile-nav-btn">
+        <i class="ph ph-user-circle"></i>
         <span>Akun</span>
-      </button>
+      </a>
     </nav>
   </div>
 
@@ -834,6 +375,12 @@
           <p class="detail-description-text" id="detail-description">Memuat keterangan aduan...</p>
         </div>
 
+        <!-- Bukti Foto -->
+        <div class="detail-section" id="detail-photos-section" style="display: none;">
+          <h4 class="section-subheading">Bukti Foto</h4>
+          <div class="detail-photo-grid" id="detail-photos-container"></div>
+        </div>
+
         <!-- Lokasi Kendala -->
         <div class="detail-section">
           <h4 class="section-subheading">Lokasi Kendala</h4>
@@ -848,7 +395,7 @@
 
         <!-- Riwayat Status & Timeline (v_report_timeline) -->
         <div class="detail-section">
-          <h4 class="section-subheading">Riwayat Status & Penanganan</h4>
+          <h4 class="section-subheading">Riwayat Status &amp; Penanganan</h4>
           <div class="timeline-container" id="detail-timeline-container">
             <!-- Timeline items rendered here -->
           </div>
@@ -925,6 +472,24 @@
         <div class="form-group">
           <label for="report-desc-input">Detail Kendala (20–2000 Karakter) <span class="required-star">*</span></label>
           <textarea id="report-desc-input" class="form-textarea" rows="4" placeholder="Jelaskan kondisi kerusakan atau kendala secara spesifik agar mudah ditindaklanjuti..." required minlength="20" maxlength="2000"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="report-photo-input">Foto Bukti (opsional, maks. 3)</label>
+          <div class="photo-input-actions">
+            <input type="file" id="report-photo-input" class="photo-file-input" accept="image/*" multiple>
+            <label for="report-photo-input" class="btn-action-secondary photo-pick-btn">
+              <i class="ph ph-image"></i>
+              <span>Pilih Foto</span>
+            </label>
+            <input type="file" id="report-camera-input" class="photo-file-input" accept="image/*" capture="environment">
+            <label for="report-camera-input" class="btn-action-secondary photo-pick-btn">
+              <i class="ph ph-camera"></i>
+              <span>Ambil Foto</span>
+            </label>
+          </div>
+          <div class="photo-preview-grid" id="report-photo-preview"></div>
+          <p class="photo-hint">Foto otomatis dikompres di perangkat sebelum dikirim.</p>
         </div>
 
         <button type="submit" class="btn-action-primary" style="width: 100%; justify-content: center; margin-top: 8px;">
@@ -1035,7 +600,7 @@
     <div class="modal-dialog">
       <div class="modal-header">
         <div>
-          <h3 id="auth-modal-title">Masuk Akun Warga & Pengurus RT</h3>
+          <h3 id="auth-modal-title">Masuk Akun Warga &amp; Pengurus RT</h3>
           <p style="font-size: 12px; color: var(--ink-secondary); margin-top: 2px;">
             Gunakan kredensial data warga ({nama+angka acak}) atau pilih cepat nama Anda.
           </p>
@@ -1086,7 +651,8 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <!-- Main JavaScript App Entry -->
-  <script type="module" src="js/app.js"></script>
+  <!-- Page-specific JavaScript -->
+  <script type="module" src="js/pages/dashboard.js"></script>
+
 </body>
 </html>

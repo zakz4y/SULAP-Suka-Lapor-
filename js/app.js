@@ -35,6 +35,7 @@ let currentOpenReport = null;
 let activeFilterStatus = 'all';
 let activeFilterCategory = '';
 let activeFilterMine = false;
+let pendingPhotos = [];
 
 // DOM Elements Modals
 const authModal = document.getElementById('auth-modal');
@@ -57,8 +58,7 @@ const btnAdminChangeStatus = document.getElementById('btn-admin-change-status');
 const btnAdminAddInspection = document.getElementById('btn-admin-add-inspection');
 const btnReporterReopen = document.getElementById('btn-reporter-reopen');
 
-// Quick Role Select & Warga Select
-const quickRoleSelect = document.getElementById('quick-role-select');
+// Quick Warga Select
 const quickWargaSelect = document.getElementById('quick-warga-select');
 
 // Search & Filter
@@ -200,30 +200,35 @@ function switchTab(tabId) {
 /**
  * 3. Memuat Data 36 Warga dari Backend / CSV ({nama+angka acak})
  */
-async function loadWargaData() {
+async function fetchWargaListSafe() {
   try {
     const res = await fetch('/api/v1/warga');
     if (res.ok) {
       const json = await res.json();
-      cachedWargaList = json.data || [];
+      return json.data || [];
     }
   } catch (err) {
-    console.warn('Fallback loadWargaData:', err.message);
+    console.warn('Fallback fetchWargaListSafe:', err.message);
   }
+  return cachedWargaList;
+}
+
+async function loadWargaData() {
+  cachedWargaList = await fetchWargaListSafe();
 
   // Isi dropdown pilihan cepat warga di modal login
   if (quickWargaSelect && cachedWargaList.length > 0) {
     quickWargaSelect.innerHTML = '<option value="">-- Pilih dari 36 Warga RT --</option>' +
       cachedWargaList.map(w => `<option value="${w.username}">${w.nama} (${w.jabatan}) - [${w.role}]</option>`).join('');
 
-    quickWargaSelect.addEventListener('change', (e) => {
+    quickWargaSelect.onchange = (e) => {
       const selectedUsername = e.target.value;
       const found = cachedWargaList.find(w => w.username === selectedUsername);
       if (found) {
         document.getElementById('auth-email').value = found.username;
         document.getElementById('auth-password').value = found.password;
       }
-    });
+    };
   }
 }
 
@@ -288,11 +293,6 @@ function applyUserContext(user, isGuest = false) {
   document.getElementById('settings-role-badge').textContent = formatRoleLabel(currentRole);
   document.getElementById('settings-rt-name').textContent = 'RT 01 Melati / RW 03';
 
-  // Sinkronkan Quick Role Select
-  if (quickRoleSelect) {
-    quickRoleSelect.value = currentRole;
-  }
-
   // Tampilkan / Sembunyikan Navigasi Admin & Dev
   updateRoleNavigationVisibility(currentRole);
 
@@ -313,14 +313,16 @@ function updateRoleNavigationVisibility(role) {
 
   const navTitleAdmin = document.getElementById('nav-title-admin');
   const navBtnAdmin = document.getElementById('nav-btn-admin');
-  const mobileNavAdmin = document.getElementById('mobile-nav-admin');
+  const mobileAdminBtn = document.getElementById('mobile-admin-header-btn');
+  const mobileDevBtn = document.getElementById('mobile-dev-header-btn');
 
   const navTitleDev = document.getElementById('nav-title-dev');
   const navBtnDev = document.getElementById('nav-btn-developer');
 
   if (navTitleAdmin) navTitleAdmin.style.display = isAdmin ? 'block' : 'none';
   if (navBtnAdmin) navBtnAdmin.parentElement.style.display = isAdmin ? 'block' : 'none';
-  if (mobileNavAdmin) mobileNavAdmin.style.display = isAdmin ? 'flex' : 'none';
+  if (mobileAdminBtn) mobileAdminBtn.classList.toggle('hidden', !isAdmin);
+  if (mobileDevBtn) mobileDevBtn.classList.toggle('hidden', !isDev);
 
   if (navTitleDev) navTitleDev.style.display = isDev ? 'block' : 'none';
   if (navBtnDev) navBtnDev.parentElement.style.display = isDev ? 'block' : 'none';
@@ -369,6 +371,7 @@ async function loadReports() {
   try {
     cachedReports = await fetchFeedReports();
     renderDashboardTickets(cachedReports);
+    renderDashboardInsights(cachedReports);
     renderFullReports();
     updateMetrics(cachedReports);
   } catch (err) {
@@ -389,6 +392,97 @@ function renderDashboardTickets(reports) {
 
   ticketFeedContainer.innerHTML = reports.slice(0, 6).map(report => generateTicketCardHtml(report)).join('');
   attachReportClickEvents(ticketFeedContainer);
+}
+
+function renderDashboardInsights(reports) {
+  renderWeeklyChart(reports);
+  renderAgenda(reports);
+}
+
+function renderWeeklyChart(reports) {
+  const container = document.getElementById('chart-bars-container');
+  if (!container) return;
+
+  const dayLabels = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+  const days = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    days.push({ date: d, label: dayLabels[d.getDay()], count: 0 });
+  }
+
+  (reports || []).forEach(r => {
+    if (!r.created_at) return;
+    const created = new Date(r.created_at);
+    created.setHours(0, 0, 0, 0);
+    const bucket = days.find(d => d.date.getTime() === created.getTime());
+    if (bucket) bucket.count += 1;
+  });
+
+  const max = Math.max(1, ...days.map(d => d.count));
+
+  container.innerHTML = days.map(d => {
+    const height = d.count === 0 ? 0 : Math.max(8, Math.round((d.count / max) * 100));
+    return `
+      <div class="chart-bar-col">
+        <div class="bar-pill ${d.count === max && d.count > 0 ? 'peak-day' : ''} ${d.count === 0 ? 'bar-empty' : ''}"
+             style="height: ${height}%;" title="${d.label}: ${d.count} aduan"></div>
+        <span class="bar-day-label">${d.label}</span>
+      </div>
+    `;
+  }).join('');
+
+  const total = days.reduce((sum, d) => sum + d.count, 0);
+  const summary = document.getElementById('chart-summary-text');
+  if (summary) {
+    summary.textContent = total === 0
+      ? 'Belum ada laporan masuk minggu ini.'
+      : `${total} laporan masuk dalam 7 hari terakhir.`;
+  }
+}
+
+function renderAgenda(reports) {
+  const container = document.getElementById('agenda-list-container');
+  if (!container) return;
+
+  const agenda = (reports || [])
+    .filter(r => ['new', 'triaged', 'inspection'].includes(r.status_group || 'new'))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .slice(0, 3);
+
+  if (agenda.length === 0) {
+    container.innerHTML = `
+      <div class="agenda-empty">
+        <i class="ph ph-calendar-check"></i>
+        <span>Belum ada laporan yang perlu ditinjau.</span>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = agenda.map(r => `
+    <div class="agenda-item" data-agenda-report="${escapeHtml(r.id || r.public_no)}">
+      <div class="agenda-left">
+        <div class="agenda-icon">
+          <i class="ph ${getCategoryIcon(r.category_name)}"></i>
+        </div>
+        <div class="agenda-details">
+          <div class="title">${escapeHtml(r.title)}</div>
+          <div class="meta">${escapeHtml(r.location_text || 'Wilayah RT 01')} • ${formatRelativeTime(r.created_at)}</div>
+        </div>
+      </div>
+      <i class="ph ph-caret-right" style="color: var(--ink-tertiary);"></i>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('[data-agenda-report]').forEach(item => {
+    item.addEventListener('click', () => {
+      openReportDetail(item.getAttribute('data-agenda-report'));
+    });
+  });
 }
 
 function renderFullReports() {
@@ -519,6 +613,8 @@ async function openReportDetail(reportIdOrNo) {
       document.getElementById('detail-location-coords').textContent = 'Koordinat GPS tidak disertakan.';
     }
 
+    renderDetailPhotos(report.photos);
+
     document.getElementById('detail-created-at').textContent = formatRelativeTime(report.created_at);
 
     const statusGroup = report.current_status_group || report.status_group || 'new';
@@ -566,6 +662,25 @@ function renderTimeline(timeline) {
       </div>
       ${item.note ? `<div class="timeline-note">${escapeHtml(item.note)}</div>` : ''}
     </div>
+  `).join('');
+}
+
+function renderDetailPhotos(photos) {
+  const section = document.getElementById('detail-photos-section');
+  const container = document.getElementById('detail-photos-container');
+  if (!section || !container) return;
+
+  if (!photos || photos.length === 0) {
+    section.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
+  section.style.display = 'block';
+  container.innerHTML = photos.map(src => `
+    <a href="${src}" target="_blank" rel="noopener" class="detail-photo-item">
+      <img src="${src}" alt="Bukti foto laporan">
+    </a>
   `).join('');
 }
 
@@ -636,66 +751,198 @@ function openReopenModal() {
   reopenModal.classList.remove('hidden');
 }
 
+const MAX_REPORT_PHOTOS = 3;
+
+function compressImageFile(file, maxDim = 1280, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Gagal membaca file foto.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('File bukan gambar yang valid.'));
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addReportPhotos(fileList) {
+  const files = Array.from(fileList || []);
+  if (files.length === 0) return;
+
+  const remaining = MAX_REPORT_PHOTOS - pendingPhotos.length;
+  if (remaining <= 0) {
+    showToast(`Maksimal ${MAX_REPORT_PHOTOS} foto per laporan.`, 'info');
+    return;
+  }
+
+  const accepted = files.slice(0, remaining);
+  if (files.length > remaining) {
+    showToast(`Hanya ${remaining} foto lagi yang bisa ditambahkan.`, 'info');
+  }
+
+  try {
+    for (const file of accepted) {
+      if (!file.type.startsWith('image/')) continue;
+      const compressed = await compressImageFile(file);
+      pendingPhotos.push(compressed);
+    }
+  } catch (err) {
+    showToast('Gagal memproses foto: ' + err.message, 'error');
+  }
+
+  renderPhotoPreview();
+}
+
+function renderPhotoPreview() {
+  const container = document.getElementById('report-photo-preview');
+  if (!container) return;
+
+  container.innerHTML = pendingPhotos.map((src, idx) => `
+    <div class="photo-preview-item">
+      <img src="${src}" alt="Pratinjau foto ${idx + 1}">
+      <button type="button" class="photo-remove-btn" data-photo-index="${idx}" aria-label="Hapus foto">
+        <i class="ph ph-x"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
 function openCreateReportModal() {
+  pendingPhotos = [];
+  renderPhotoPreview();
   document.getElementById('report-title-input').value = '';
   document.getElementById('report-desc-input').value = '';
   document.getElementById('report-addr-input').value = '';
   document.getElementById('report-lat-input').value = '';
   document.getElementById('report-lng-input').value = '';
+  const photoInput = document.getElementById('report-photo-input');
+  const cameraInput = document.getElementById('report-camera-input');
+  if (photoInput) photoInput.value = '';
+  if (cameraInput) cameraInput.value = '';
   reportModal.classList.remove('hidden');
 }
 
 /**
  * 9. Portals: Admin RT Data Loader
  */
+function buildAdminOverview(reports) {
+  const list = reports || [];
+  const now = Date.now();
+  const isOpen = r => !['resolved', 'closed'].includes(r.status_group || 'new');
+
+  const needsAction = list
+    .filter(isOpen)
+    .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
+    .slice(0, 10)
+    .map(r => {
+      const cfg = getStatusConfig(r.status_group || 'new');
+      const ageHours = Math.max(0, Math.floor((now - new Date(r.created_at || now).getTime()) / 3600000));
+      return {
+        id: r.id,
+        publicNo: r.public_no || r.id,
+        title: r.title || 'Laporan tanpa judul',
+        statusGroup: r.status_group || 'new',
+        ageHours,
+        priority: ageHours >= 48 ? 'Tinggi' : (ageHours >= 24 ? 'Sedang' : 'Baru'),
+        note: `${r.status_label || cfg.label} • ${r.location_text || 'Wilayah RT 01'} • ${ageHours} jam menunggu`
+      };
+    });
+
+  const last7 = list.filter(r =>
+    ['resolved', 'closed'].includes(r.status_group) &&
+    (now - new Date(r.updated_at || r.created_at || 0).getTime()) <= 7 * 24 * 3600000
+  ).length;
+
+  return {
+    counts: {
+      new: list.filter(r => (r.status_group || 'new') === 'new').length,
+      inspection: list.filter(r => r.status_group === 'inspection').length,
+      in_progress: list.filter(r => r.status_group === 'in_progress').length,
+      resolvedLast7Days: last7
+    },
+    needsAction
+  };
+}
+
+function renderAdminNeedsAction(items) {
+  const listContainer = document.getElementById('admin-needs-action-list');
+  if (!listContainer) return;
+
+  if (!items || items.length === 0) {
+    listContainer.innerHTML = `<div class="agenda-empty"><i class="ph ph-checks"></i><span>Tidak ada laporan yang butuh tindakan.</span></div>`;
+    return;
+  }
+
+  listContainer.innerHTML = items.map(item => `
+    <div class="needs-action-item">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="ticket-id">${escapeHtml(item.publicNo)}</span>
+          <span class="priority-tag">${escapeHtml(item.priority)}</span>
+          <span style="font-size: 10.5px; color: var(--ink-tertiary);">${item.ageHours} jam</span>
+        </div>
+        <strong style="font-size: 13px; color: var(--ink-primary); display: block; margin-top: 4px;">${escapeHtml(item.title)}</strong>
+        <div style="font-size: 11px; color: var(--ink-secondary); margin-top: 2px;">${escapeHtml(item.note)}</div>
+      </div>
+      <button class="btn-action-primary" data-action-report="${escapeHtml(item.publicNo)}">
+        <span>Tindak Lanjuti</span>
+      </button>
+    </div>
+  `).join('');
+
+  listContainer.querySelectorAll('[data-action-report]').forEach(btn => {
+    btn.addEventListener('click', () => openReportDetail(btn.getAttribute('data-action-report')));
+  });
+}
+
+function renderAdminWargaTable() {
+  const wargaTbody = document.getElementById('admin-warga-tbody');
+  if (!wargaTbody) return;
+
+  if (cachedWargaList.length === 0) {
+    wargaTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--ink-tertiary);">Data warga belum tersedia.</td></tr>`;
+    return;
+  }
+
+  wargaTbody.innerHTML = cachedWargaList.map(w => `
+    <tr>
+      <td>
+        <div class="table-user-cell">
+          <div class="table-avatar">${escapeHtml((w.nama || '?').charAt(0))}</div>
+          <strong>${escapeHtml(w.nama)}</strong>
+        </div>
+      </td>
+      <td>${escapeHtml(w.jabatan)}</td>
+      <td><span class="badge-role">${escapeHtml(w.role)}</span></td>
+      <td style="font-family: monospace;">${escapeHtml(w.username)}</td>
+      <td>${escapeHtml(w.email)}</td>
+      <td><span style="color: #16A34A; font-weight: 600;">Aktif</span></td>
+    </tr>
+  `).join('');
+}
+
 async function loadAdminPortalData() {
   try {
-    const res = await fetch('/api/v1/admin/overview');
-    if (res.ok) {
-      const { data } = await res.json();
-      document.getElementById('admin-triaged-count').textContent = data.counts?.new || 4;
-      document.getElementById('admin-inspect-count').textContent = data.counts?.inspection || 2;
-      document.getElementById('admin-resolved-count').textContent = data.counts?.resolvedLast7Days || 11;
+    // Selalu ambil data terbaru saat panel Admin RT dibuka
+    cachedReports = await fetchFeedReports();
+    cachedWargaList = await fetchWargaListSafe();
+    renderAdminWargaTable();
 
-      const listContainer = document.getElementById('admin-needs-action-list');
-      if (listContainer && data.needsAction) {
-        listContainer.innerHTML = data.needsAction.map(item => `
-          <div class="needs-action-item">
-            <div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="ticket-id">${escapeHtml(item.publicNo)}</span>
-                <span class="priority-tag">${escapeHtml(item.priority)}</span>
-              </div>
-              <strong style="font-size: 13px; color: var(--ink-primary); display: block; margin-top: 4px;">${escapeHtml(item.title)}</strong>
-              <div style="font-size: 11px; color: var(--ink-secondary); margin-top: 2px;">${escapeHtml(item.note)}</div>
-            </div>
-            <button class="btn-action-primary" onclick="window.sulapOpenDetail('${item.publicNo}')">
-              <span>Tindak Lanjuti</span>
-            </button>
-          </div>
-        `).join('');
-      }
-    }
-
-    // Render Data Warga di Admin RT
-    const wargaTbody = document.getElementById('admin-warga-tbody');
-    if (wargaTbody && cachedWargaList.length > 0) {
-      wargaTbody.innerHTML = cachedWargaList.map(w => `
-        <tr>
-          <td>
-            <div class="table-user-cell">
-              <div class="table-avatar">${w.nama.charAt(0)}</div>
-              <strong>${escapeHtml(w.nama)}</strong>
-            </div>
-          </td>
-          <td>${escapeHtml(w.jabatan)}</td>
-          <td><span class="badge-role">${escapeHtml(w.role)}</span></td>
-          <td style="font-family: monospace;">${escapeHtml(w.username)}</td>
-          <td>${escapeHtml(w.email)}</td>
-          <td><span style="color: #16A34A; font-weight: 600;">Aktif</span></td>
-        </tr>
-      `).join('');
-    }
+    const overview = buildAdminOverview(cachedReports);
+    document.getElementById('admin-triaged-count').textContent = overview.counts.new;
+    document.getElementById('admin-inspect-count').textContent = overview.counts.inspection;
+    document.getElementById('admin-resolved-count').textContent = overview.counts.resolvedLast7Days;
+    renderAdminNeedsAction(overview.needsAction);
 
     // Render Kode Undangan
     const invitesTbody = document.getElementById('admin-invites-tbody');
@@ -724,12 +971,29 @@ async function loadAdminPortalData() {
  */
 async function loadDeveloperPortalData() {
   try {
+    // Selalu ambil data terbaru saat Dev Hub dibuka
+    cachedReports = await fetchFeedReports();
+    cachedWargaList = await fetchWargaListSafe();
+
     const devRes = await fetch('/api/v1/dev/overview');
     if (devRes.ok) {
       const { data } = await devRes.json();
-      document.getElementById('dev-stat-rt').textContent = data.rtCount || 2;
-      document.getElementById('dev-stat-users').textContent = data.activeUserCount || cachedWargaList.length;
+      document.getElementById('dev-stat-rt').textContent = data.rtCount ?? 0;
+      document.getElementById('dev-stat-users').textContent = data.activeUserCount ?? cachedWargaList.length;
     }
+
+    const now = Date.now();
+    const reportsLast30Days = cachedReports.filter(r =>
+      (now - new Date(r.created_at || 0).getTime()) <= 30 * 24 * 3600000
+    ).length;
+    const openReports = cachedReports.filter(r =>
+      !['resolved', 'closed'].includes(r.status_group || 'new')
+    ).length;
+
+    const statReports = document.getElementById('dev-stat-reports');
+    if (statReports) statReports.textContent = reportsLast30Days;
+    const statNeedsAction = document.getElementById('dev-stat-needs-action');
+    if (statNeedsAction) statNeedsAction.textContent = openReports;
 
     // Render Tenant RTs
     const rtsRes = await fetch('/api/v1/dev/rts');
@@ -750,8 +1014,10 @@ async function loadDeveloperPortalData() {
 
     // Render Developer User Role Switcher
     const usersTbody = document.getElementById('dev-users-tbody');
-    if (usersTbody && cachedWargaList.length > 0) {
-      usersTbody.innerHTML = cachedWargaList.map(w => `
+    if (usersTbody) {
+      usersTbody.innerHTML = cachedWargaList.length === 0
+        ? `<tr><td colspan="6" style="text-align:center; color: var(--ink-tertiary);">Data warga belum tersedia.</td></tr>`
+        : cachedWargaList.map(w => `
         <tr>
           <td><strong>${escapeHtml(w.nama)}</strong></td>
           <td style="font-family: monospace;">${escapeHtml(w.username)}</td>
@@ -859,32 +1125,23 @@ function setupEventListeners() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole })
       });
-      if (res.ok) {
-        showToast(`Peran pengguna berhasil diubah ke ${newRole}`, 'success');
-        const badge = document.getElementById(`badge-user-role-${id}`);
-        if (badge) badge.textContent = newRole;
+      if (!res.ok) {
+        showToast('Gagal mengubah peran pengguna.', 'error');
+        return;
       }
+
+      // Sinkronkan cache lokal agar Admin RT & Dev Hub menampilkan data sama
+      const localUser = cachedWargaList.find(w => String(w.uuid || w.id) === String(userId));
+      if (localUser) localUser.role = newRole;
+
+      showToast(`Peran pengguna berhasil diubah ke ${newRole}`, 'success');
+      renderAdminWargaTable();
+      await loadAdminPortalData();
+      await loadDeveloperPortalData();
     } catch (err) {
       showToast('Gagal mengubah peran: ' + err.message, 'error');
     }
   };
-
-  // Role Switcher Simulator
-  quickRoleSelect?.addEventListener('change', (e) => {
-    const role = e.target.value;
-    let mockUser = {
-      id: 'sim-user',
-      displayName: role === 'developer' ? 'Jonathan Azazia' : (role === 'rt_admin' ? 'Yuda Adi Pratama' : 'Achmad Fajar'),
-      role: role,
-      jabatan: role === 'developer' ? 'Developer' : (role === 'rt_admin' ? 'Ketua RT' : 'Warga')
-    };
-    localStorage.setItem('sulap_sim_user', JSON.stringify(mockUser));
-    applyUserContext(mockUser);
-    showToast(`Beralih ke tampilan mode: ${formatRoleLabel(role)}`, 'info');
-    if (role === 'rt_admin') switchTab('admin');
-    else if (role === 'developer') switchTab('developer');
-    else switchTab('dashboard');
-  });
 
   // Modal close triggers
   document.querySelectorAll('[data-close-modal]').forEach(btn => {
@@ -895,6 +1152,35 @@ function setupEventListeners() {
 
   btnAuthTrigger?.addEventListener('click', () => authModal.classList.remove('hidden'));
   btnNewReport?.addEventListener('click', openCreateReportModal);
+  document.getElementById('mobile-btn-new-report')?.addEventListener('click', openCreateReportModal);
+
+  // Mobile: buka/tutup kolom pencarian
+  const searchWrapper = document.getElementById('header-search-wrapper');
+  document.getElementById('btn-search-toggle')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!searchWrapper) return;
+    searchWrapper.classList.toggle('expanded');
+    if (searchWrapper.classList.contains('expanded')) {
+      document.getElementById('global-search-input')?.focus();
+    }
+  });
+
+  // Foto bukti laporan
+  document.getElementById('report-photo-input')?.addEventListener('change', (e) => {
+    addReportPhotos(e.target.files);
+    e.target.value = '';
+  });
+  document.getElementById('report-camera-input')?.addEventListener('change', (e) => {
+    addReportPhotos(e.target.files);
+    e.target.value = '';
+  });
+  document.getElementById('report-photo-preview')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-photo-index]');
+    if (!btn) return;
+    const idx = Number(btn.getAttribute('data-photo-index'));
+    pendingPhotos.splice(idx, 1);
+    renderPhotoPreview();
+  });
 
   btnRefreshFeed?.addEventListener('click', async () => {
     btnRefreshFeed.innerHTML = '<i class="ph ph-arrow-clockwise"></i> Memuat...';
@@ -1003,11 +1289,14 @@ function setupEventListeners() {
         categoryId,
         addressText,
         lat,
-        lng
+        lng,
+        photos: [...pendingPhotos]
       });
       showToast(`Laporan ${res?.publicNo || ''} berhasil dikirim ke pengurus RT!`, 'success');
       reportModal.classList.add('hidden');
       reportForm.reset();
+      pendingPhotos = [];
+      renderPhotoPreview();
       await loadReports();
     } catch (err) {
       showToast('Gagal mengirim laporan: ' + err.message, 'error');

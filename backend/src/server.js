@@ -195,29 +195,12 @@ const server = http.createServer(async (req, res) => {
     sendJson(200, {
       data: {
         counts: {
-          new: 4,
-          inspection: 2,
-          in_progress: 5,
-          resolvedLast7Days: 11
+          new: 0,
+          inspection: 0,
+          in_progress: 0,
+          resolvedLast7Days: 0
         },
-        needsAction: [
-          {
-            publicNo: 'SULAP-RT01-0042',
-            title: 'Saluran air tersumbat di depan gang',
-            statusGroup: 'in_progress',
-            ageHours: 4,
-            priority: 'Tinggi',
-            note: 'Menunggu pengangkutan lumpur drainase'
-          },
-          {
-            publicNo: 'SULAP-RT01-0041',
-            title: 'Lampu penerangan jalan padam di perempatan utama',
-            statusGroup: 'inspection',
-            ageHours: 18,
-            priority: 'Sedang',
-            note: 'Jadwal penggantian bohlam LED malam ini'
-          }
-        ]
+        needsAction: []
       }
     });
     return;
@@ -256,11 +239,7 @@ const server = http.createServer(async (req, res) => {
   // 7. Ekspor CSV (GET /api/v1/reports/export)
   if (pathname === `${BASE_URL}/reports/export` && req.method === 'GET') {
     const csvContent = [
-      'Nomor Publik,Judul,Kategori,Status,Lokasi,Tanggal Dibuat,Versi',
-      'SULAP-RT01-0042,"Saluran air tersumbat di depan gang",Saluran Air,Dalam Penanganan,"Gang Melati 2",2026-11-18,2',
-      'SULAP-RT01-0041,"Lampu penerangan jalan padam",Lampu Jalan,Inspeksi Lapangan,"Perempatan Jl. Kenanga",2026-11-17,1',
-      'SULAP-RT01-0040,"Tumpukan sampah liar",Sampah,Baru Masuk,"Samping kebun RT 01",2026-11-18,1',
-      'SULAP-RT01-0039,"Jalan paving amblas",Jalan Rusak,Selesai,"Depan rumah No. B-14",2026-11-16,3'
+      'Nomor Publik,Judul,Kategori,Status,Lokasi,Tanggal Dibuat,Versi'
     ].join('\n');
 
     res.writeHead(200, {
@@ -277,8 +256,8 @@ const server = http.createServer(async (req, res) => {
       data: {
         rtCount: rtsStore.length,
         activeUserCount: wargaData.length,
-        reportsLast30Days: 28,
-        needsActionCount: 2,
+        reportsLast30Days: 0,
+        needsActionCount: 0,
         dbStatus: 'Terhubung (Supabase Postgres 17)',
         serverUptime: process.uptime()
       }
