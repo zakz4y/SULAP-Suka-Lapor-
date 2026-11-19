@@ -607,8 +607,10 @@ body {
   width: 100%;
 }
 
-.tab-panel.active {
+.tab-panel.active,
+.page-content {
   display: block;
+  width: 100%;
   animation: fadeIn 140ms ease-out;
 }
 

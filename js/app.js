@@ -145,6 +145,10 @@ function setupNavigation() {
     });
   });
 
+  // Tombol Admin & Developer di header mobile
+  document.getElementById('mobile-admin-header-btn')?.addEventListener('click', () => switchTab('admin'));
+  document.getElementById('mobile-dev-header-btn')?.addEventListener('click', () => switchTab('developer'));
+
   // Subtabs Admin
   document.querySelectorAll('[data-admin-subtab]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -318,11 +322,13 @@ function updateRoleNavigationVisibility(role) {
 
   const navTitleDev = document.getElementById('nav-title-dev');
   const navBtnDev = document.getElementById('nav-btn-developer');
+  const mobileNavAdmin = document.getElementById('mobile-nav-admin');
 
   if (navTitleAdmin) navTitleAdmin.style.display = isAdmin ? 'block' : 'none';
   if (navBtnAdmin) navBtnAdmin.parentElement.style.display = isAdmin ? 'block' : 'none';
   if (mobileAdminBtn) mobileAdminBtn.classList.toggle('hidden', !isAdmin);
   if (mobileDevBtn) mobileDevBtn.classList.toggle('hidden', !isDev);
+  if (mobileNavAdmin) mobileNavAdmin.style.display = isAdmin ? '' : 'none';
 
   if (navTitleDev) navTitleDev.style.display = isDev ? 'block' : 'none';
   if (navBtnDev) navBtnDev.parentElement.style.display = isDev ? 'block' : 'none';
@@ -374,9 +380,19 @@ async function loadReports() {
     renderDashboardInsights(cachedReports);
     renderFullReports();
     updateMetrics(cachedReports);
+    updateAdminBadge(cachedReports);
   } catch (err) {
     ticketFeedContainer.innerHTML = `<div style="padding: 20px; color: var(--danger-btn); font-size: 13px;">Gagal memuat feed: ${err.message}</div>`;
   }
+}
+
+function updateAdminBadge(reports) {
+  const badge = document.getElementById('badge-admin-needs-action');
+  if (!badge) return;
+  const openCount = (reports || []).filter(r =>
+    !['resolved', 'closed'].includes(r.status_group || 'new')
+  ).length;
+  badge.textContent = openCount;
 }
 
 function renderDashboardTickets(reports) {

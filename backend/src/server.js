@@ -25,7 +25,7 @@ try {
   console.warn("Gagal membaca data_warga_credentials.json:", err.message);
 }
 
-const PORT = config?.api?.port || 3000;
+const PORT = Number(process.env.PORT) || config?.api?.port || 3000;
 const BASE_URL = config?.api?.baseUrl || '/api/v1';
 
 const MIME_TYPES = {
@@ -381,23 +381,37 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  const serveFile = (targetPath) => {
+    const ext = path.extname(targetPath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': contentType });
+    fs.createReadStream(targetPath).pipe(res);
+  };
+
   fs.stat(filePath, (err, stats) => {
-    if (err || !stats.isFile()) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: {
-          code: 'NOT_FOUND',
-          message: 'Berkas atau endpoint tidak ditemukan'
-        }
-      }));
-      return;
+    if (!err && stats.isFile()) {
+      return serveFile(filePath);
     }
 
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    // Dukung clean URL tanpa ekstensi .html (contoh: /reports, /admin, /developer)
+    if (!path.extname(filePath)) {
+      const htmlPath = filePath + '.html';
+      try {
+        if (fs.statSync(htmlPath).isFile()) {
+          return serveFile(htmlPath);
+        }
+      } catch (e) {
+        // Lanjut ke 404 di bawah
+      }
+    }
 
-    res.writeHead(200, { 'Content-Type': contentType });
-    fs.createReadStream(filePath).pipe(res);
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: {
+        code: 'NOT_FOUND',
+        message: 'Berkas atau endpoint tidak ditemukan'
+      }
+    }));
   });
 });
 
